@@ -321,6 +321,41 @@ canvas {
     padding: 0 10px;
   }
 
+  .onboarding-panel {
+    padding: 8px;
+  }
+
+  .onboarding-card {
+    width: min(320px, 100%);
+    max-height: calc(100% - 16px);
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .onboarding-kicker {
+    margin-bottom: 4px;
+    font-size: 0.62rem;
+  }
+
+  .onboarding-card h2 {
+    margin-bottom: 8px;
+    font-size: 1.45rem;
+    line-height: 1.02;
+  }
+
+  .onboarding-card ul {
+    gap: 5px;
+    margin-bottom: 10px;
+    padding-left: 16px;
+    font-size: 0.78rem;
+    line-height: 1.18;
+  }
+
+  .onboarding-card button {
+    min-height: 34px;
+    font-size: 0.88rem;
+  }
+
   .control-strip {
     justify-content: center;
     gap: 6px;

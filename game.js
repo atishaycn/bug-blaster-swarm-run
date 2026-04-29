@@ -526,6 +526,7 @@ class Game {
     this.laserTick = 0;
     this.activeWeapon = null;
     this.weaponTimer = 0;
+    this.weaponQueue = [];
     this.upgradeLevel = 0;
     this.bossCount = 0;
     this.nextBossTime = 45;
@@ -671,7 +672,7 @@ class Game {
   updateWeapons(dt) {
     if (this.activeWeapon) {
       this.weaponTimer -= dt;
-      if (this.weaponTimer <= 0) this.activeWeapon = null;
+      if (this.weaponTimer <= 0) this.activateNextQueuedWeapon();
     }
     this.fireTimer -= dt;
     const weapon = this.activeWeapon;
@@ -808,6 +809,31 @@ class Game {
     return target.x + target.w * 0.5 < WIDTH - 8;
   }
 
+  collectWeapon(type) {
+    if (this.activeWeapon) {
+      this.weaponQueue.push(type);
+      return;
+    }
+    this.activateWeapon(type);
+  }
+
+  activateWeapon(type) {
+    this.activeWeapon = type;
+    this.weaponTimer = WEAPONS[type].duration;
+    if (type === "drone") this.droneFireTimer = 0.3;
+    if (type === "laser") this.laserTick = 0;
+  }
+
+  activateNextQueuedWeapon() {
+    const nextWeapon = this.weaponQueue.shift();
+    if (nextWeapon) {
+      this.activateWeapon(nextWeapon);
+    } else {
+      this.activeWeapon = null;
+      this.weaponTimer = 0;
+    }
+  }
+
   spawnBoss() {
     this.bossCount += 1;
     this.boss = new Boss(this.bossCount % 2 === 1 ? "beetle" : "wasp", this.bossCount, this.elapsed);
@@ -837,8 +863,7 @@ class Game {
         } else if (power.type === "upgrade") {
           this.upgradeLevel = Math.min(MAX_UPGRADE_LEVEL, this.upgradeLevel + 1);
         } else {
-          this.activeWeapon = power.type;
-          this.weaponTimer = WEAPONS[power.type].duration;
+          this.collectWeapon(power.type);
         }
         this.audio.beep("power");
         for (let i = 0; i < 12; i++) this.spawnParticle(power.x + 18, power.y + 18, pickup.color, rand(2, 5), rand(-150, 150), rand(-210, -50), 0.45);

@@ -624,7 +624,7 @@ class Game {
 
   async syncScores() {
     const scores = await fetchScores();
-    if (scores.length) this.setLeaderboard(scores);
+    if (scores) this.setLeaderboard(scores);
   }
 
   setLeaderboard(scores) {
@@ -1179,11 +1179,11 @@ function normalizeScores(rows) {
 async function fetchScores() {
   try {
     const response = await fetch(SCORE_API, { cache: "no-store" });
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const data = await response.json();
     return normalizeScores(data.scores);
   } catch {
-    return [];
+    return null;
   }
 }
 

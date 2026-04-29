@@ -7,12 +7,6 @@ const LOCAL_FILE = process.env.VERCEL
   : path.join(process.cwd(), ".data", "scores.json");
 const LIMIT = 10;
 
-const DEFAULT_ROWS = [
-  { initials: "BUG", score: 500 },
-  { initials: "SUN", score: 350 },
-  { initials: "RUN", score: 200 }
-];
-
 module.exports = async function handler(request, response) {
   setCors(response);
   if (request.method === "OPTIONS") return response.status(204).end();
@@ -46,13 +40,13 @@ module.exports = async function handler(request, response) {
 
 async function readScores() {
   const remote = await kvRequest("GET", KEY);
-  if (remote.ok) return normalizeScores(remote.value || DEFAULT_ROWS);
+  if (remote.ok) return normalizeScores(remote.value);
 
   try {
     const raw = await fs.readFile(LOCAL_FILE, "utf8");
     return normalizeScores(JSON.parse(raw));
   } catch {
-    return DEFAULT_ROWS;
+    return [];
   }
 }
 

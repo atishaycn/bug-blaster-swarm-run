@@ -12,7 +12,7 @@ For the shared top-10 score backend, run through Vercel:
 vercel dev
 ```
 
-The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment variables in production. Without those variables it falls back to `.data/scores.json` locally and `/tmp/bug-blaster-scores.json` on Vercel, which is useful for demos but not durable across cold starts.
+The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment variables in production. Without those variables it falls back to `.data/scores.json` locally and `/tmp/bug-blaster-scores.json` on Vercel, which is useful for demos but not durable across cold starts. A fresh backend returns an empty leaderboard until players submit scores.
 
 ## Controls
 
@@ -47,7 +47,7 @@ Bosses appear periodically, show health bars, scale health over time, and can dr
 
 ## Top 10 Scores
 
-The start and game-over overlays include an arcade score dashboard. Scores sync through `/api/scores` when available and fall back to `localStorage` if the backend cannot be reached. Qualifying game-over scores prompt the player to type three initials and press `Enter` to save.
+The start and game-over overlays include an arcade score dashboard. Scores sync through `/api/scores` when available and fall back to `localStorage` if the backend cannot be reached. A successful empty backend response clears the in-browser fallback leaderboard. Qualifying game-over scores prompt the player to type three initials and press `Enter` to save.
 
 ## Power-Ups
 

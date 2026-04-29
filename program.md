@@ -28,7 +28,7 @@ For shared top-10 score backend verification, run:
 vercel dev
 ```
 
-Then verify `GET /api/scores` and a qualifying game-over initials submission. The API falls back to `.data/scores.json` locally and `/tmp/bug-blaster-scores.json` on Vercel when KV/Upstash env vars are absent; configure KV/Upstash for durable production scores.
+Then verify `GET /api/scores` and a qualifying game-over initials submission. The API falls back to `.data/scores.json` locally and `/tmp/bug-blaster-scores.json` on Vercel when KV/Upstash env vars are absent; configure KV/Upstash for durable production scores. A missing score file should produce an empty leaderboard, and a successful empty backend response should clear the browser fallback leaderboard.
 
 Core checks: start screen appears with the score dashboard, Enter starts, player jumps, auto-shooting works, only enemies spawn, bosses appear, power-ups require jumping, weapon power-ups work, health restores one heart up to current max, max-health pickup increases max health and refills, score/high score persist, qualifying scores accept three initials, and restart works without a refresh.
 

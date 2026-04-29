@@ -111,6 +111,68 @@ canvas {
   user-select: none;
 }
 
+.onboarding-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: none;
+  place-items: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255, 209, 102, 0.28), transparent 16rem),
+    rgba(18, 32, 38, 0.68);
+}
+
+.onboarding-panel.is-visible {
+  display: grid;
+}
+
+.onboarding-card {
+  width: min(390px, 100%);
+  padding: clamp(16px, 2.6vw, 22px);
+  border: 1px solid rgba(255, 209, 102, 0.42);
+  border-radius: 8px;
+  color: #fffaf0;
+  background: rgba(8, 14, 28, 0.92);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.28);
+}
+
+.onboarding-kicker {
+  margin: 0 0 6px;
+  color: #ffd166;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.onboarding-card h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.55rem, 4vw, 2.15rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.onboarding-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0 0 0 18px;
+  color: #d8ecf4;
+  font-size: 0.95rem;
+  line-height: 1.32;
+}
+
+.onboarding-card button {
+  width: 100%;
+  color: #2b170d;
+  background: #ffd166;
+}
+
+.onboarding-card button:hover {
+  background: #ffe08a;
+}
+
 .restart-button {
   position: absolute;
   right: 18px;

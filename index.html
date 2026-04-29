@@ -18,6 +18,19 @@
         </div>
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="960" height="360" aria-label="Bug Blaster canvas"></canvas>
+          <section id="onboardingPanel" class="onboarding-panel" aria-labelledby="onboardingTitle" aria-modal="true" role="dialog">
+            <div class="onboarding-card">
+              <p class="onboarding-kicker">First run</p>
+              <h2 id="onboardingTitle">Jump, blast, survive.</h2>
+              <ul>
+                <li>Tap, Space, ArrowUp, or W to jump.</li>
+                <li>Your blaster fires automatically at incoming bugs.</li>
+                <li>Jump into floating power-ups for weapons, health, and Blaster Core levels.</li>
+                <li>Boss bugs appear over time. Last longer to reach the top 10.</li>
+              </ul>
+              <button id="onboardingButton" type="button">Got it</button>
+            </div>
+          </section>
           <button id="restartButton" class="restart-button" type="button">Restart</button>
           <form id="initialsPanel" class="initials-panel" autocomplete="off" aria-label="Save leaderboard score">
             <label for="initialsInput">Name</label>

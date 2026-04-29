@@ -26,6 +26,8 @@ The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment vari
 
 The player stays near the bottom-left, jumps with gravity, and automatically shoots from the gun barrel. Bugs continuously enter from the right. Survive as long as possible, destroy bugs for score, defeat periodic boss bugs, and jump to collect floating power-ups.
 
+New players see a short one-time onboarding card before their first run. It explains jumping, auto-shooting, power-ups, bosses, and the leaderboard goal.
+
 There are no hurdles, rocks, logs, spike mounds, or non-enemy obstacles. The challenge comes entirely from enemy contact, swarm density, boss pressure, and weapon timing.
 
 ## Enemy Types
@@ -55,14 +57,14 @@ The same dashboard also shows the player's personal best 10 performances from th
 - Rapid Fire: much faster fire rate
 - Spread Shot: three-shot vertical spread
 - Piercing Shot: bullets can hit up to three enemies
-- Laser Beam: pulsing continuous forward beam
+- Laser Beam: pulsing continuous forward beam with a short, high-power duration
 - Rocket Shot: fast heavy explosive projectile that clears clustered enemies and knocks nearby targets around
 - Drone Helper: companion drone fires extra bullets
 - Health: restores 1 health up to the current max
 - Max Health: increases max health by 1 and refills health
-- Blaster Core: permanent run upgrade that improves default fire rate first, then bullet speed, damage, and light pierce at higher levels
+- Blaster Core: permanent run upgrade with 10 total levels that improves default fire rate first, then bullet speed, damage, and light pierce at higher levels
 
-Each Blaster Core level also changes the player's shirt color and default shot color so the current upgrade tier is visible during play.
+Each Blaster Core level also changes the player's shirt color and default shot color so the current upgrade tier is visible during play. Core pickups arrive more slowly than weapon pickups so full leveling is a longer competitive target.
 
 All power-ups float above the standing player lane and require a jump to collect. Health, Max Health, and Blaster Core are the only non-weapon pickups. There are no shield, score boost, or generic power-ups. Blaster Core upgrades are permanent for the current run and help the player scale with the late-game swarm.
 

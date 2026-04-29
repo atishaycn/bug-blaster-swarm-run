@@ -9,6 +9,7 @@ const SHOOT_LANE_Y = GROUND_Y - 36;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
+const ONBOARDING_KEY = "bugBlasterRunnerOnboardingSeen";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
@@ -42,7 +43,7 @@ const WEAPONS = {
   rapid: { name: "Rapid Fire", label: "R", color: "#ff5f57", duration: 10, asset: "rapidPower" },
   spread: { name: "Spread Shot", label: "3", color: "#8b5cf6", duration: 10, asset: "spreadPower" },
   pierce: { name: "Piercing Shot", label: "P", color: "#2f66d5", duration: 11, asset: "piercePower" },
-  laser: { name: "Laser Beam", label: "L", color: "#f43f5e", duration: 8, asset: "laserPower" },
+  laser: { name: "Laser Beam", label: "L", color: "#f43f5e", duration: 4, asset: "laserPower" },
   rocket: { name: "Rocket Shot", label: "X", color: "#f97316", duration: 11, asset: "rocketPower" },
   drone: { name: "Drone Helper", label: "D", color: "#5fc8a6", duration: 12, asset: "dronePower" }
 };
@@ -54,7 +55,7 @@ const PICKUPS = {
   upgrade: { name: "Blaster Core", label: "U", color: "#ffd166", asset: "upgradePower" }
 };
 
-const MAX_UPGRADE_LEVEL = 8;
+const MAX_UPGRADE_LEVEL = 10;
 const CORE_LEVEL_COLORS = [
   { shirt: "#2f8fdd", shot: "#fff4a3", stroke: "#d9731f", glow: "#fff4a3" },
   { shirt: "#35b6ff", shot: "#8ee8ff", stroke: "#176d9b", glow: "#8ee8ff" },
@@ -64,6 +65,8 @@ const CORE_LEVEL_COLORS = [
   { shirt: "#f97316", shot: "#ff9d4d", stroke: "#8f2e12", glow: "#ff9d4d" },
   { shirt: "#f43f5e", shot: "#ff75a0", stroke: "#8a1231", glow: "#ff75a0" },
   { shirt: "#8b5cf6", shot: "#c4a7ff", stroke: "#43208e", glow: "#c4a7ff" },
+  { shirt: "#4f46e5", shot: "#a5b4fc", stroke: "#2d237f", glow: "#a5b4fc" },
+  { shirt: "#0f766e", shot: "#99f6e4", stroke: "#134e4a", glow: "#99f6e4" },
   { shirt: "#ecfeff", shot: "#ffffff", stroke: "#2f66d5", glow: "#9af6ff" }
 ];
 const ROCKET = {
@@ -550,6 +553,9 @@ class Game {
     this.initialsPanel = document.getElementById("initialsPanel");
     this.initialsInput = document.getElementById("initialsInput");
     this.initialsSave = document.getElementById("initialsSave");
+    this.onboardingPanel = document.getElementById("onboardingPanel");
+    this.onboardingButton = document.getElementById("onboardingButton");
+    this.onboardingVisible = localStorage.getItem(ONBOARDING_KEY) !== "true";
     this.initialsPanelVisible = false;
     this.assets = new AssetManager(ASSET_PATHS);
     this.audio = new AudioManager();
@@ -569,6 +575,7 @@ class Game {
     this.lastTime = 0;
     this.bindInput();
     this.reset();
+    this.updateOnboarding();
     this.syncScores();
     this.updateButtons();
     requestAnimationFrame((t) => this.loop(t));
@@ -586,7 +593,7 @@ class Game {
     this.worldSpeed = 230;
     this.spawnTimer = 0.55;
     this.powerTimer = 7;
-    this.upgradeTimer = 18;
+    this.upgradeTimer = 28;
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
     this.laserTick = 0;
@@ -617,6 +624,13 @@ class Game {
         }
         return;
       }
+      if (this.onboardingVisible) {
+        if (event.key === "Enter" || event.key === " " || event.code === "Space") {
+          event.preventDefault();
+          this.dismissOnboarding();
+        }
+        return;
+      }
       if (["Space", "ArrowUp"].includes(event.code) || event.key.toLowerCase() === "w") {
         event.preventDefault();
         this.actionJump();
@@ -634,6 +648,10 @@ class Game {
       const target = event.target;
       if (target.closest?.("button, input, textarea, select, form, a")) return;
       event.preventDefault();
+      if (this.onboardingVisible) {
+        this.dismissOnboarding();
+        return;
+      }
       if (this.pendingEntry) {
         this.focusInitialsInput();
         return;
@@ -643,6 +661,10 @@ class Game {
     this.canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (this.onboardingVisible) {
+        this.dismissOnboarding();
+        return;
+      }
       if (!this.pendingEntry) this.actionJump();
     }, { passive: false });
     this.restartButton.addEventListener("click", (event) => {
@@ -665,10 +687,18 @@ class Game {
     this.initialsPanel.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     });
+    this.onboardingButton?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.dismissOnboarding();
+    });
+    this.onboardingPanel?.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
   }
 
   startOrRestart() {
     if (this.pendingEntry) return;
+    if (this.onboardingVisible) return;
     this.audio.ensure();
     if (this.state === "start" || this.state === "gameover") {
       this.reset();
@@ -678,6 +708,7 @@ class Game {
   }
 
   actionJump() {
+    if (this.onboardingVisible) return;
     if (this.state === "playing") this.player.jump();
     else if (this.state === "start" || this.state === "gameover") this.startOrRestart();
   }
@@ -696,6 +727,21 @@ class Game {
     this.muteButton.textContent = this.audio.muted ? "Sound Off" : "Sound On";
     this.restartButton.classList.toggle("is-visible", this.state === "gameover" && !this.pendingEntry);
     this.updateInitialsPanel();
+  }
+
+  dismissOnboarding() {
+    if (!this.onboardingVisible) return;
+    this.onboardingVisible = false;
+    localStorage.setItem(ONBOARDING_KEY, "true");
+    this.updateOnboarding();
+  }
+
+  updateOnboarding() {
+    if (!this.onboardingPanel) return;
+    this.onboardingPanel.classList.toggle("is-visible", this.onboardingVisible);
+    this.onboardingPanel.setAttribute("aria-hidden", String(!this.onboardingVisible));
+    if (this.onboardingButton) this.onboardingButton.disabled = !this.onboardingVisible;
+    if (this.onboardingVisible) window.setTimeout(() => this.onboardingButton?.focus({ preventScroll: true }), 0);
   }
 
   updateInitialsPanel() {
@@ -872,7 +918,7 @@ class Game {
     }
     this.upgradeTimer -= dt;
     if (this.upgradeTimer <= 0 && this.upgradeLevel < MAX_UPGRADE_LEVEL) {
-      this.upgradeTimer = rand(24, 34);
+      this.upgradeTimer = rand(38, 50);
       this.spawnPowerUp("upgrade");
     }
     if (!this.boss && this.elapsed >= this.nextBossTime) {
@@ -959,7 +1005,7 @@ class Game {
 
   spawnPowerUp(forceType) {
     const keys = ["rapid", "spread", "pierce", "laser", "rocket", "drone", "health", "maxHealth"];
-    if (this.elapsed > 25 && this.upgradeLevel < MAX_UPGRADE_LEVEL) keys.push("upgrade");
+    if (this.elapsed > 40 && this.upgradeLevel < MAX_UPGRADE_LEVEL) keys.push("upgrade");
     const type = forceType || keys[Math.floor(Math.random() * keys.length)];
     const y = rand(142, 208);
     this.powerUps.push(new PowerUp(type, WIDTH + 48, y));

@@ -59,8 +59,9 @@ The start and game-over overlays include an arcade score dashboard. Scores sync 
 - Drone Helper: companion drone fires extra bullets
 - Health: restores 1 health up to the current max
 - Max Health: increases max health by 1 and refills health
+- Blaster Core: permanent run upgrade that improves default fire rate first, then bullet speed, damage, and light pierce at higher levels
 
-All power-ups float above the standing player lane and require a jump to collect. Health and Max Health are the only non-weapon pickups. There are no shield, score boost, or generic power-ups.
+All power-ups float above the standing player lane and require a jump to collect. Health, Max Health, and Blaster Core are the only non-weapon pickups. There are no shield, score boost, or generic power-ups. Blaster Core upgrades are permanent for the current run and help the player scale with the late-game swarm.
 
 ## Asset Strategy
 

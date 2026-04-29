@@ -9,6 +9,7 @@ const SHOOT_LANE_Y = GROUND_Y - 36;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const SCORE_API = "/api/scores";
+const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
 const ASSET_PATHS = {
   player: "assets/player.svg",
@@ -32,7 +33,8 @@ const ASSET_PATHS = {
   rocketPower: "assets/power-rocket.svg",
   dronePower: "assets/power-drone.svg",
   healthPower: "assets/power-health.svg",
-  maxHealthPower: "assets/power-max-health.svg"
+  maxHealthPower: "assets/power-max-health.svg",
+  upgradePower: "assets/ui-bolt.svg"
 };
 
 const WEAPONS = {
@@ -47,8 +49,11 @@ const WEAPONS = {
 const PICKUPS = {
   ...WEAPONS,
   health: { name: "Health", label: "+", color: "#47c26b", asset: "healthPower" },
-  maxHealth: { name: "Max Health", label: "H", color: "#22c55e", asset: "maxHealthPower" }
+  maxHealth: { name: "Max Health", label: "H", color: "#22c55e", asset: "maxHealthPower" },
+  upgrade: { name: "Blaster Core", label: "U", color: "#ffd166", asset: "upgradePower" }
 };
+
+const MAX_UPGRADE_LEVEL = 8;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -515,11 +520,13 @@ class Game {
     this.worldSpeed = 230;
     this.spawnTimer = 0.55;
     this.powerTimer = 7;
+    this.upgradeTimer = 18;
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
     this.laserTick = 0;
     this.activeWeapon = null;
     this.weaponTimer = 0;
+    this.upgradeLevel = 0;
     this.bossCount = 0;
     this.nextBossTime = 45;
     this.difficulty = 0;
@@ -555,9 +562,10 @@ class Game {
         this.audio.toggleMute();
       }
     });
-    this.canvas.addEventListener("pointerdown", () => {
+    this.canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
       if (!this.pendingEntry) this.actionJump();
-    });
+    }, { passive: false });
     this.restartButton.addEventListener("click", (event) => {
       event.stopPropagation();
       this.startOrRestart();
@@ -667,7 +675,7 @@ class Game {
     }
     this.fireTimer -= dt;
     const weapon = this.activeWeapon;
-    const interval = weapon === "rapid" ? 0.17 : weapon === "rocket" ? 0.78 : weapon === "laser" ? 0.08 : 0.34;
+    const interval = this.weaponInterval(weapon);
     if (this.fireTimer <= 0) {
       this.fireTimer = interval;
       if (weapon === "laser") {
@@ -677,25 +685,44 @@ class Game {
         this.fireBullet(0);
         this.fireBullet(95);
       } else if (weapon === "rocket") {
-        this.fireBullet(0, "rocket", 2, 1, 430);
+        this.fireBullet(0, "rocket", this.projectileDamage("rocket"), 1, 430 + this.upgradeLevel * 14);
       } else {
-        this.fireBullet(0, weapon === "pierce" ? "pierce" : "normal", 1, weapon === "pierce" ? 3 : 1);
+        const type = weapon === "pierce" || this.upgradeLevel >= 7 ? "pierce" : "normal";
+        this.fireBullet(0, type, this.projectileDamage(type), this.projectilePierce(type));
       }
     }
     if (weapon === "drone") {
       this.droneFireTimer -= dt;
       if (this.droneFireTimer <= 0) {
-        this.droneFireTimer = 0.34;
+        this.droneFireTimer = clamp(0.34 - this.upgradeLevel * 0.012, 0.24, 0.34);
         const barrel = this.player.barrel();
-        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720, 0, "drone", 1, 1));
+        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1));
         this.audio.beep("shoot");
       }
     }
   }
 
+  weaponInterval(weapon) {
+    if (weapon === "rapid") return clamp(0.17 - this.upgradeLevel * 0.006, 0.12, 0.17);
+    if (weapon === "rocket") return clamp(0.78 - this.upgradeLevel * 0.025, 0.56, 0.78);
+    if (weapon === "laser") return clamp(0.08 - this.upgradeLevel * 0.003, 0.055, 0.08);
+    return clamp(0.34 - this.upgradeLevel * 0.02, 0.2, 0.34);
+  }
+
+  projectileDamage(type) {
+    const bonus = this.upgradeLevel >= 5 ? 1 : 0;
+    if (type === "rocket") return 2 + bonus;
+    return 1 + bonus;
+  }
+
+  projectilePierce(type) {
+    if (type === "pierce") return Math.min(5, 3 + Math.floor(this.upgradeLevel / 4));
+    return this.upgradeLevel >= 7 ? 2 : 1;
+  }
+
   fireBullet(vy = 0, type = "normal", damage = 1, pierce = 1, speed = 760) {
     const barrel = this.player.barrel();
-    this.bullets.push(new Bullet(barrel.x, barrel.y, speed, vy, type, damage, pierce));
+    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce));
     this.player.recoil = 1;
     this.audio.beep("shoot");
   }
@@ -725,6 +752,11 @@ class Game {
     if (this.powerTimer <= 0) {
       this.powerTimer = this.boss ? rand(7, 10) : rand(10, 15);
       this.spawnPowerUp();
+    }
+    this.upgradeTimer -= dt;
+    if (this.upgradeTimer <= 0 && this.upgradeLevel < MAX_UPGRADE_LEVEL) {
+      this.upgradeTimer = rand(24, 34);
+      this.spawnPowerUp("upgrade");
     }
     if (!this.boss && this.elapsed >= this.nextBossTime) {
       this.spawnBoss();
@@ -784,7 +816,8 @@ class Game {
   }
 
   spawnPowerUp(forceType) {
-    const keys = Object.keys(PICKUPS);
+    const keys = ["rapid", "spread", "pierce", "laser", "rocket", "drone", "health", "maxHealth"];
+    if (this.elapsed > 25 && this.upgradeLevel < MAX_UPGRADE_LEVEL) keys.push("upgrade");
     const type = forceType || keys[Math.floor(Math.random() * keys.length)];
     const y = rand(142, 208);
     this.powerUps.push(new PowerUp(type, WIDTH + 48, y));
@@ -801,6 +834,8 @@ class Game {
         } else if (power.type === "maxHealth") {
           this.player.maxHealth += 1;
           this.player.health = this.player.maxHealth;
+        } else if (power.type === "upgrade") {
+          this.upgradeLevel = Math.min(MAX_UPGRADE_LEVEL, this.upgradeLevel + 1);
         } else {
           this.activeWeapon = power.type;
           this.weaponTimer = WEAPONS[power.type].duration;
@@ -1012,20 +1047,33 @@ class Game {
       roundRect(ctx, WIDTH - 86, 48, 70 * (this.weaponTimer / weapon.duration), 6, 3);
       ctx.fill();
     } else {
+      const text = this.upgradeLevel ? `Default Blaster Lv ${this.upgradeLevel}` : "Default Blaster";
+      const textW = ctx.measureText(text).width + 34;
       ctx.fillStyle = "rgba(25, 50, 60, 0.9)";
-      roundRect(ctx, WIDTH - 208, 14, 192, 42, 8);
+      roundRect(ctx, WIDTH - textW - 16, 14, textW, 42, 8);
       ctx.fill();
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 15px Avenir, sans-serif";
-      ctx.fillText("Default Blaster", WIDTH - 190, 40);
+      ctx.fillText(text, WIDTH - textW, 40);
     }
-    if (this.audio.muted) {
+    if (this.upgradeLevel) {
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
-      roundRect(ctx, WIDTH - 96, 62, 80, 26, 8);
+      roundRect(ctx, WIDTH - 160, 62, 144, 26, 8);
+      ctx.fill();
+      ctx.fillStyle = "#ffd166";
+      roundRect(ctx, WIDTH - 88, 78, 66 * (this.upgradeLevel / MAX_UPGRADE_LEVEL), 5, 3);
       ctx.fill();
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 13px Avenir, sans-serif";
-      ctx.fillText("Muted", WIDTH - 78, 80);
+      ctx.fillText(`Core ${this.upgradeLevel}/${MAX_UPGRADE_LEVEL}`, WIDTH - 142, 80);
+    }
+    if (this.audio.muted) {
+      ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
+      roundRect(ctx, WIDTH - 96, this.upgradeLevel ? 94 : 62, 80, 26, 8);
+      ctx.fill();
+      ctx.fillStyle = "#fff4d8";
+      ctx.font = "800 13px Avenir, sans-serif";
+      ctx.fillText("Muted", WIDTH - 78, this.upgradeLevel ? 112 : 80);
     }
     if (this.boss) this.drawBossBar(ctx);
     ctx.restore();
@@ -1177,29 +1225,43 @@ function normalizeScores(rows) {
 }
 
 async function fetchScores() {
-  try {
-    const response = await fetch(SCORE_API, { cache: "no-store" });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return normalizeScores(data.scores);
-  } catch {
-    return null;
+  for (const api of scoreApiCandidates()) {
+    try {
+      const response = await fetch(api, { cache: "no-store" });
+      if (!response.ok) continue;
+      const data = await response.json();
+      return normalizeScores(data.scores);
+    } catch {
+      continue;
+    }
   }
+  return null;
 }
 
 async function postScore(entry) {
-  try {
-    const response = await fetch(SCORE_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entry)
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return normalizeScores(data.scores);
-  } catch {
-    return [];
+  for (const api of scoreApiCandidates()) {
+    try {
+      const response = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry)
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      return normalizeScores(data.scores);
+    } catch {
+      continue;
+    }
   }
+  return [];
+}
+
+function scoreApiCandidates() {
+  const candidates = [SCORE_API];
+  if (globalThis.location?.origin !== "https://game.phunnysunny.com") {
+    candidates.push(PRODUCTION_SCORE_API);
+  }
+  return candidates;
 }
 
 function qualifiesForLeaderboard(rows, score) {

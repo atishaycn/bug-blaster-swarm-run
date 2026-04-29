@@ -20,8 +20,7 @@ The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment vari
 - `Enter`: start or restart
 - `P`: pause or unpause
 - `M`: mute or unmute generated audio
-- Click/touch canvas: jump
-- Click/touch overlay: start or restart
+- Click/touch anywhere on the page: jump, start, or restart
 
 ## Gameplay
 
@@ -47,7 +46,7 @@ Bosses appear periodically, show health bars, scale health over time, and can dr
 
 ## Top 10 Scores
 
-The start and game-over overlays include an arcade score dashboard. Scores sync through `/api/scores` when available and fall back to `localStorage` if the backend cannot be reached. A successful empty backend response clears the in-browser fallback leaderboard. Qualifying game-over scores prompt the player to type three initials and press `Enter` to save.
+The start and game-over overlays include an arcade score dashboard. Scores sync through `/api/scores` when available and fall back to `localStorage` if the backend cannot be reached. A successful empty backend response clears the in-browser fallback leaderboard. Qualifying game-over scores prompt the player to type three initials and press `Enter`, or use the on-screen name field and Save button on phone.
 
 ## Power-Ups
 

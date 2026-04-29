@@ -19,9 +19,17 @@
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="960" height="360" aria-label="Bug Blaster canvas"></canvas>
           <button id="restartButton" class="restart-button" type="button">Restart</button>
+          <form id="initialsPanel" class="initials-panel" autocomplete="off" aria-label="Save leaderboard score">
+            <label for="initialsInput">Name</label>
+            <div class="initials-row">
+              <input id="initialsInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="3" pattern="[A-Za-z]{3}" placeholder="ABC" aria-label="Three letter leaderboard name">
+              <button id="initialsSave" type="submit">Save</button>
+            </div>
+          </form>
         </div>
         <div class="control-strip" aria-label="Controls">
           <span>Space: Jump</span>
+          <span>Tap Anywhere: Jump</span>
           <span>Enter: Start or Restart</span>
           <span>P: Pause</span>
           <span>M: Mute</span>

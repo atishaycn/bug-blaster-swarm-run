@@ -486,6 +486,10 @@ class Game {
     this.ctx = canvas.getContext("2d");
     this.muteButton = muteButton;
     this.restartButton = restartButton;
+    this.initialsPanel = document.getElementById("initialsPanel");
+    this.initialsInput = document.getElementById("initialsInput");
+    this.initialsSave = document.getElementById("initialsSave");
+    this.initialsPanelVisible = false;
     this.assets = new AssetManager(ASSET_PATHS);
     this.audio = new AudioManager();
     this.player = new Player();
@@ -563,8 +567,20 @@ class Game {
         this.audio.toggleMute();
       }
     });
+    window.addEventListener("pointerdown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      const target = event.target;
+      if (target.closest?.("button, input, textarea, select, form, a")) return;
+      event.preventDefault();
+      if (this.pendingEntry) {
+        this.focusInitialsInput();
+        return;
+      }
+      this.actionJump();
+    }, { passive: false });
     this.canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      event.stopPropagation();
       if (!this.pendingEntry) this.actionJump();
     }, { passive: false });
     this.restartButton.addEventListener("click", (event) => {
@@ -574,6 +590,18 @@ class Game {
     this.muteButton.addEventListener("click", () => {
       this.audio.toggleMute();
       this.updateButtons();
+    });
+    this.initialsInput.addEventListener("input", () => {
+      this.initials = this.initialsInput.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+      this.initialsInput.value = this.initials;
+      this.updateInitialsPanel();
+    });
+    this.initialsPanel.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.submitInitials();
+    });
+    this.initialsPanel.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
     });
   }
 
@@ -605,16 +633,41 @@ class Game {
   updateButtons() {
     this.muteButton.textContent = this.audio.muted ? "Sound Off" : "Sound On";
     this.restartButton.classList.toggle("is-visible", this.state === "gameover" && !this.pendingEntry);
+    this.updateInitialsPanel();
+  }
+
+  updateInitialsPanel() {
+    if (!this.initialsPanel || !this.initialsInput || !this.initialsSave) return;
+    const visible = Boolean(this.pendingEntry);
+    const wasVisible = this.initialsPanelVisible;
+    this.initialsPanelVisible = visible;
+    this.initialsPanel.classList.toggle("is-visible", visible);
+    this.initialsInput.disabled = !visible;
+    this.initialsSave.disabled = this.initials.length !== 3;
+    if (!visible) {
+      this.initialsInput.value = "";
+      return;
+    }
+    if (this.initialsInput.value !== this.initials) this.initialsInput.value = this.initials;
+    if (!wasVisible) window.setTimeout(() => this.focusInitialsInput(), 0);
+  }
+
+  focusInitialsInput() {
+    if (!this.pendingEntry || !this.initialsInput) return;
+    this.initialsInput.focus({ preventScroll: true });
+    this.initialsInput.select();
   }
 
   addInitial(letter) {
     if (!this.pendingEntry || this.initials.length >= 3) return;
     this.initials += letter;
+    this.updateInitialsPanel();
   }
 
   removeInitial() {
     if (!this.pendingEntry) return;
     this.initials = this.initials.slice(0, -1);
+    this.updateInitialsPanel();
   }
 
   submitInitials() {
@@ -1139,7 +1192,7 @@ class Game {
     this.drawLeaderboardPanel(ctx, 202, 18, 556, 326, {
       title: this.pendingEntry ? "NEW HIGH SCORE" : "GAME OVER",
       subtitle: `FINAL ${Math.floor(this.score)}  HIGH ${this.highScore}`,
-      prompt: this.pendingEntry ? "TYPE 3 INITIALS  ENTER TO SAVE" : "PRESS ENTER OR TAP TO RESTART",
+      prompt: this.pendingEntry ? "TYPE 3 LETTERS BELOW  TAP SAVE" : "PRESS ENTER OR TAP TO RESTART",
       score: this.pendingEntry?.score || null,
       initials: this.initials
     });

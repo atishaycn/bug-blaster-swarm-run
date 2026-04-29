@@ -14,7 +14,13 @@
 
 ## Run And Verify
 
-Open `index.html` directly in Chrome for pure local play. For local static verification, run:
+Open `index.html` directly in Chrome for pure local play. Run the syntax and rocket-balance regression check with:
+
+```sh
+npm run check
+```
+
+For local static verification, run:
 
 ```sh
 python3 -m http.server 8000

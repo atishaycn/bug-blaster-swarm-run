@@ -54,6 +54,20 @@ const PICKUPS = {
 };
 
 const MAX_UPGRADE_LEVEL = 8;
+const ROCKET = {
+  baseSpeed: 660,
+  speedUpgrade: 28,
+  baseInterval: 0.44,
+  intervalUpgrade: 0.018,
+  minInterval: 0.28,
+  baseDamage: 4,
+  upgradedDamage: 5,
+  splashRadius: 118,
+  bossSplashRadius: 132,
+  splashDamage: 4,
+  bossSplashDamage: 3,
+  knockback: 132
+};
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -324,6 +338,11 @@ class Enemy {
   update(dt, worldSpeed) {
     this.time += dt;
     this.x -= (this.speed + worldSpeed * 0.2) * dt;
+    if (this.knockbackVx) {
+      this.x += this.knockbackVx * dt;
+      this.knockbackVx *= Math.pow(0.025, dt);
+      if (Math.abs(this.knockbackVx) < 8) this.knockbackVx = 0;
+    }
     if (this.type === "flying" || this.type === "mini" || this.type === "zigzag") {
       this.y = this.baseY + Math.sin(this.time * 8) * 2;
     }
@@ -335,6 +354,12 @@ class Enemy {
     this.health -= amount;
     this.hitFlash = 0.1;
     if (this.health <= 0) this.dead = true;
+  }
+
+  knockbackFrom(x, force) {
+    const centerX = this.x + this.w / 2;
+    const direction = centerX >= x ? 1 : -1;
+    this.knockbackVx = (this.knockbackVx || 0) + direction * force;
   }
 
   hitbox() {
@@ -385,7 +410,11 @@ class Boss {
     if (this.x > targetX) this.x -= 72 * dt;
     else {
       this.entered = true;
-      this.x = targetX + Math.sin(this.time * 1.2) * 26;
+      this.x = targetX + Math.sin(this.time * 1.2) * 26 + (this.knockbackOffset || 0);
+    }
+    if (this.knockbackOffset) {
+      this.knockbackOffset *= Math.pow(0.035, dt);
+      if (Math.abs(this.knockbackOffset) < 1) this.knockbackOffset = 0;
     }
     if (this.kind === "wasp") this.y = this.baseY + Math.sin(this.time * 1.9) * 12;
     else this.y = this.baseY + Math.sin(this.time * 1.35) * 8;
@@ -402,6 +431,12 @@ class Boss {
     this.health -= amount;
     this.hitFlash = 0.1;
     if (this.health <= 0) this.dead = true;
+  }
+
+  knockbackFrom(x, force) {
+    const centerX = this.x + this.w / 2;
+    const direction = centerX >= x ? 1 : -1;
+    this.knockbackOffset = clamp((this.knockbackOffset || 0) + direction * force * 0.18, -26, 26);
   }
 
   hitbox() {
@@ -739,7 +774,7 @@ class Game {
         this.fireBullet(0);
         this.fireBullet(95);
       } else if (weapon === "rocket") {
-        this.fireBullet(0, "rocket", this.projectileDamage("rocket"), 1, 430 + this.upgradeLevel * 14);
+        this.fireBullet(0, "rocket", this.projectileDamage("rocket"), 1, ROCKET.baseSpeed + this.upgradeLevel * ROCKET.speedUpgrade);
       } else {
         const type = weapon === "pierce" || this.upgradeLevel >= 7 ? "pierce" : "normal";
         this.fireBullet(0, type, this.projectileDamage(type), this.projectilePierce(type));
@@ -758,14 +793,14 @@ class Game {
 
   weaponInterval(weapon) {
     if (weapon === "rapid") return clamp(0.17 - this.upgradeLevel * 0.006, 0.12, 0.17);
-    if (weapon === "rocket") return clamp(0.78 - this.upgradeLevel * 0.025, 0.56, 0.78);
+    if (weapon === "rocket") return clamp(ROCKET.baseInterval - this.upgradeLevel * ROCKET.intervalUpgrade, ROCKET.minInterval, ROCKET.baseInterval);
     if (weapon === "laser") return clamp(0.08 - this.upgradeLevel * 0.003, 0.055, 0.08);
     return clamp(0.34 - this.upgradeLevel * 0.02, 0.2, 0.34);
   }
 
   projectileDamage(type) {
     const bonus = this.upgradeLevel >= 5 ? 1 : 0;
-    if (type === "rocket") return 2 + bonus;
+    if (type === "rocket") return bonus ? ROCKET.upgradedDamage : ROCKET.baseDamage;
     return 1 + bonus;
   }
 
@@ -944,7 +979,7 @@ class Game {
           hitSomething = true;
           this.spawnHit(bullet.x, bullet.y, bullet.type === "rocket" ? "#f97316" : "#ffcc4d");
           this.audio.beep("hit");
-          if (bullet.type === "rocket") this.explode(bullet.x, bullet.y, 64, 2);
+          if (bullet.type === "rocket") this.explode(bullet.x, bullet.y, ROCKET.splashRadius, ROCKET.splashDamage);
           if (bullet.hitIds.size >= bullet.pierce) bullet.dead = true;
         }
       });
@@ -952,7 +987,7 @@ class Game {
         this.boss.damage(bullet.damage);
         hitSomething = true;
         this.spawnHit(bullet.x, bullet.y, bullet.type === "rocket" ? "#f97316" : "#ffcc4d");
-        if (bullet.type === "rocket") this.explode(bullet.x, bullet.y, 70, 2);
+        if (bullet.type === "rocket") this.explode(bullet.x, bullet.y, ROCKET.bossSplashRadius, ROCKET.bossSplashDamage);
         bullet.dead = true;
       }
       if (hitSomething && bullet.type !== "pierce") bullet.dead = bullet.type !== "rocket" || bullet.dead;
@@ -977,10 +1012,16 @@ class Game {
 
   explode(x, y, radius, damage) {
     this.enemies.forEach((enemy) => {
-      if (!enemy.dead && this.canDamageTarget(enemy) && circleRectOverlap(x, y, radius, enemy.hitbox())) enemy.damage(damage);
+      if (!enemy.dead && this.canDamageTarget(enemy) && circleRectOverlap(x, y, radius, enemy.hitbox())) {
+        enemy.damage(damage);
+        enemy.knockbackFrom(x, ROCKET.knockback);
+      }
     });
-    if (this.boss && this.canDamageTarget(this.boss) && circleRectOverlap(x, y, radius, this.boss.hitbox())) this.boss.damage(damage);
-    for (let i = 0; i < 16; i++) this.spawnParticle(x, y, "#f97316", rand(2, 6), rand(-220, 220), rand(-220, 80), 0.45);
+    if (this.boss && this.canDamageTarget(this.boss) && circleRectOverlap(x, y, radius, this.boss.hitbox())) {
+      this.boss.damage(damage);
+      this.boss.knockbackFrom(x, ROCKET.knockback);
+    }
+    for (let i = 0; i < 32; i++) this.spawnParticle(x, y, "#f97316", rand(3, 8), rand(-340, 340), rand(-300, 110), 0.58);
   }
 
   spawnHit(x, y, color) {

@@ -54,7 +54,7 @@ The start and game-over overlays include an arcade score dashboard. Scores sync 
 - Spread Shot: three-shot vertical spread
 - Piercing Shot: bullets can hit up to three enemies
 - Laser Beam: pulsing continuous forward beam
-- Rocket Shot: slower explosive projectile
+- Rocket Shot: fast heavy explosive projectile that clears clustered enemies and knocks nearby targets around
 - Drone Helper: companion drone fires extra bullets
 - Health: restores 1 health up to the current max
 - Max Health: increases max health by 1 and refills health

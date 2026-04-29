@@ -685,6 +685,7 @@ class Game {
     this.laserTick = 0;
     this.activeWeapon = null;
     this.weaponTimer = 0;
+    this.weaponDuration = 0;
     this.weaponQueue = [];
     this.upgradeLevel = 1;
     this.bossCount = 0;
@@ -1025,6 +1026,7 @@ class Game {
   }
 
   updateWeapons(dt) {
+    const powerBonus = this.powerBonusLevel();
     if (this.activeWeapon) {
       this.weaponTimer -= dt;
       if (this.weaponTimer <= 0) this.activateNextQueuedWeapon();
@@ -1040,53 +1042,76 @@ class Game {
         this.fireBullet(-95);
         this.fireBullet(0);
         this.fireBullet(95);
+        if (powerBonus >= 5) {
+          this.fireBullet(-155);
+          this.fireBullet(155);
+        }
       } else if (weapon === "rocket") {
-        this.fireBullet(0, "rocket", this.projectileDamage("rocket"), 1, ROCKET.baseSpeed + this.upgradeLevel * ROCKET.speedUpgrade);
+        this.fireBullet(0, "rocket", this.projectileDamage("rocket"), 1, ROCKET.baseSpeed + powerBonus * ROCKET.speedUpgrade);
       } else {
-        const type = weapon === "pierce" || this.upgradeLevel >= 7 ? "pierce" : "normal";
+        const type = weapon === "pierce" || powerBonus >= 6 ? "pierce" : "normal";
         this.fireBullet(0, type, this.projectileDamage(type), this.projectilePierce(type));
       }
     }
     if (weapon === "drone") {
       this.droneFireTimer -= dt;
       if (this.droneFireTimer <= 0) {
-        this.droneFireTimer = clamp(0.34 - this.upgradeLevel * 0.012, 0.24, 0.34);
+        this.droneFireTimer = clamp(0.34 - powerBonus * 0.012, 0.24, 0.34);
         const barrel = this.player.barrel();
-        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1, coreLevelColors(this.upgradeLevel), this.currentBulletStyle()));
+        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + powerBonus * 18, 0, "drone", this.projectileDamage("drone"), this.dronePierce(), coreLevelColors(this.upgradeLevel), this.currentBulletStyle()));
         this.audio.beep("shoot");
       }
     }
   }
 
   weaponInterval(weapon) {
-    if (weapon === "rapid") return clamp(0.17 - this.upgradeLevel * 0.006, 0.12, 0.17);
-    if (weapon === "rocket") return clamp(ROCKET.baseInterval - this.upgradeLevel * ROCKET.intervalUpgrade, ROCKET.minInterval, ROCKET.baseInterval);
-    if (weapon === "laser") return clamp(0.08 - this.upgradeLevel * 0.003, 0.055, 0.08);
-    return clamp(0.34 - this.upgradeLevel * 0.02, 0.2, 0.34);
+    const powerBonus = this.powerBonusLevel();
+    if (weapon === "rapid") return clamp(0.17 - powerBonus * 0.006, 0.12, 0.17);
+    if (weapon === "rocket") return clamp(ROCKET.baseInterval - powerBonus * ROCKET.intervalUpgrade, ROCKET.minInterval, ROCKET.baseInterval);
+    if (weapon === "laser") return clamp(0.08 - powerBonus * 0.003, 0.055, 0.08);
+    return clamp(0.34 - powerBonus * 0.02, 0.2, 0.34);
   }
 
   projectileDamage(type) {
-    const bonus = this.upgradeLevel >= 5 ? 1 : 0;
+    const bonus = this.powerBonusLevel() >= 4 ? 1 : 0;
     if (type === "rocket") return bonus ? ROCKET.upgradedDamage : ROCKET.baseDamage;
     return 1 + bonus;
   }
 
   projectilePierce(type) {
-    if (type === "pierce") return Math.min(5, 3 + Math.floor(this.upgradeLevel / 4));
-    return this.upgradeLevel >= 7 ? 2 : 1;
+    const powerBonus = this.powerBonusLevel();
+    if (type === "pierce") return Math.min(5, 3 + Math.floor(powerBonus / 4));
+    return powerBonus >= 6 ? 2 : 1;
+  }
+
+  dronePierce() {
+    return this.powerBonusLevel() >= 7 ? 2 : 1;
+  }
+
+  powerBonusLevel() {
+    return Math.max(0, this.upgradeLevel - 1);
+  }
+
+  weaponDurationFor(type) {
+    const base = WEAPONS[type].duration;
+    const powerBonus = this.powerBonusLevel();
+    const perLevel = type === "laser" ? 0.12 : 0.35;
+    const maxExtra = type === "laser" ? 1.2 : 3.5;
+    return base + Math.min(maxExtra, powerBonus * perLevel);
   }
 
   fireBullet(vy = 0, type = "normal", damage = 1, pierce = 1, speed = 760) {
     const barrel = this.player.barrel();
     const colors = type === "rocket" ? null : coreLevelColors(this.upgradeLevel);
-    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce, colors, this.currentBulletStyle()));
+    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.powerBonusLevel() * 24, vy, type, damage, pierce, colors, this.currentBulletStyle()));
     this.player.recoil = 1;
     this.audio.beep("shoot");
   }
 
   fireLaser() {
     const barrel = this.player.barrel();
-    const beam = { x: barrel.x, y: barrel.y - 6, w: WIDTH - barrel.x, h: 12 };
+    const beamH = 12 + Math.floor(this.powerBonusLevel() / 3) * 2;
+    const beam = { x: barrel.x, y: barrel.y - beamH / 2, w: WIDTH - barrel.x, h: beamH };
     this.spawnParticle(barrel.x + 70, barrel.y, "#f43f5e", 3, rand(80, 220), rand(-60, 60), 0.18);
     const targets = [...this.enemies];
     if (this.boss) targets.push(this.boss);
@@ -1175,7 +1200,8 @@ class Game {
 
   activateWeapon(type) {
     this.activeWeapon = type;
-    this.weaponTimer = WEAPONS[type].duration;
+    this.weaponDuration = this.weaponDurationFor(type);
+    this.weaponTimer = this.weaponDuration;
     if (type === "drone") this.droneFireTimer = 0.3;
     if (type === "laser") this.laserTick = 0;
   }
@@ -1187,6 +1213,7 @@ class Game {
     } else {
       this.activeWeapon = null;
       this.weaponTimer = 0;
+      this.weaponDuration = 0;
     }
   }
 
@@ -1212,9 +1239,10 @@ class Game {
         power.dead = true;
         const pickup = PICKUPS[power.type];
         if (power.type === "health") {
-          this.player.health = Math.min(this.player.maxHealth, this.player.health + 1);
+          const restore = this.powerBonusLevel() >= 5 ? 2 : 1;
+          this.player.health = Math.min(this.player.maxHealth, this.player.health + restore);
         } else if (power.type === "maxHealth") {
-          this.player.maxHealth += 1;
+          this.player.maxHealth += this.powerBonusLevel() >= 8 ? 2 : 1;
           this.player.health = this.player.maxHealth;
         } else if (power.type === "upgrade") {
           this.upgradeLevel = Math.min(MAX_UPGRADE_LEVEL, this.upgradeLevel + 1);
@@ -1436,7 +1464,7 @@ class Game {
       ctx.font = "800 15px Avenir, sans-serif";
       ctx.fillText(text, WIDTH - textW, 40);
       ctx.fillStyle = weapon.color;
-      roundRect(ctx, WIDTH - 86, 48, 70 * (this.weaponTimer / weapon.duration), 6, 3);
+      roundRect(ctx, WIDTH - 86, 48, 70 * (this.weaponTimer / this.weaponDuration), 6, 3);
       ctx.fill();
     } else {
       const text = this.upgradeLevel ? `Default Blaster Lv ${this.upgradeLevel}` : "Default Blaster";

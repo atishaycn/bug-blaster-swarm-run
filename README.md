@@ -74,7 +74,7 @@ The same dashboard also shows the player's personal best 10 performances from th
 - Drone Helper: companion drone fires extra bullets
 - Health: restores 1 health up to the current max
 - Max Health: increases max health by 1 and refills health
-- Blaster Core: permanent run upgrade with 10 total levels that improves default fire rate first, then bullet speed, damage, and light pierce at higher levels
+- Blaster Core: permanent run upgrade with levels 1 through 10 that improves default fire rate first, then bullet speed, damage, and light pierce at higher levels
 
 Each Blaster Core level also changes the player's shirt color and default shot color so the current upgrade tier is visible during play. Core pickups arrive more slowly than weapon pickups so full leveling is a longer competitive target.
 

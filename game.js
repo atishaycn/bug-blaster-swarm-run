@@ -68,7 +68,6 @@ const CORE_LEVEL_COLORS = [
   { shirt: "#f43f5e", shot: "#ff75a0", stroke: "#8a1231", glow: "#ff75a0" },
   { shirt: "#8b5cf6", shot: "#c4a7ff", stroke: "#43208e", glow: "#c4a7ff" },
   { shirt: "#4f46e5", shot: "#a5b4fc", stroke: "#2d237f", glow: "#a5b4fc" },
-  { shirt: "#0f766e", shot: "#99f6e4", stroke: "#134e4a", glow: "#99f6e4" },
   { shirt: "#ecfeff", shot: "#ffffff", stroke: "#2f66d5", glow: "#9af6ff" }
 ];
 
@@ -128,7 +127,7 @@ function rand(min, max) {
 }
 
 function coreLevelColors(level) {
-  return CORE_LEVEL_COLORS[clamp(Math.floor(level), 0, MAX_UPGRADE_LEVEL)];
+  return CORE_LEVEL_COLORS[clamp(Math.floor(level) - 1, 0, MAX_UPGRADE_LEVEL - 1)];
 }
 
 function rectsOverlap(a, b) {
@@ -687,7 +686,7 @@ class Game {
     this.activeWeapon = null;
     this.weaponTimer = 0;
     this.weaponQueue = [];
-    this.upgradeLevel = 0;
+    this.upgradeLevel = 1;
     this.bossCount = 0;
     this.nextBossTime = 45;
     this.difficulty = 0;

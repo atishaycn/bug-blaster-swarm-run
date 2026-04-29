@@ -20,8 +20,8 @@ const { CORE_LEVEL_COLORS } = sandbox;
 const uniqueShirts = new Set(CORE_LEVEL_COLORS.map((level) => level.shirt));
 const uniqueShots = new Set(CORE_LEVEL_COLORS.map((level) => level.shot));
 
-if (CORE_LEVEL_COLORS.length !== 11) {
-  throw new Error("Core visuals should define one palette entry for levels 0 through 10.");
+if (CORE_LEVEL_COLORS.length !== 10) {
+  throw new Error("Core visuals should define one palette entry for levels 1 through 10.");
 }
 
 if (uniqueShirts.size !== CORE_LEVEL_COLORS.length || uniqueShots.size !== CORE_LEVEL_COLORS.length) {

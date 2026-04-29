@@ -14,6 +14,8 @@ const ADVANCED_PROGRESS_KEY = "bugBlasterAdvancedProgress";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
+const MONSTER_MASH_WINDOW = 10;
+const MONSTER_MASH_TRIGGER_COUNT = 30;
 const ASSET_PATHS = {
   player: "assets/player.svg",
   groundCrawler: "assets/ground-crawler.svg",
@@ -191,6 +193,7 @@ class AudioManager {
       damage: [95, 0.16, 0.12, "sawtooth"],
       boss: [140, 0.45, 0.18, "square"],
       win: [680, 0.25, 0.13, "triangle"],
+      grave: [56, 0.7, 0.16, "sawtooth"],
       over: [70, 0.55, 0.18, "sawtooth"]
     }[type] || [440, 0.05, 0.04, "sine"];
     osc.frequency.setValueAtTime(data[0], now);
@@ -201,6 +204,48 @@ class AudioManager {
     gain.connect(this.context.destination);
     osc.start(now);
     osc.stop(now + data[1]);
+  }
+
+  playMonsterMash() {
+    this.ensure();
+    if (!this.context) return;
+    this.muted = false;
+    localStorage.setItem("bugBlasterMuted", "false");
+    const now = this.context.currentTime;
+    const notes = [
+      [196, 0, 0.18], [196, 0.22, 0.18], [247, 0.44, 0.18], [262, 0.66, 0.26],
+      [247, 0.98, 0.16], [220, 1.18, 0.16], [196, 1.38, 0.32], [0, 1.76, 0.08],
+      [196, 1.9, 0.18], [196, 2.12, 0.18], [247, 2.34, 0.18], [294, 2.56, 0.26],
+      [262, 2.88, 0.16], [247, 3.08, 0.16], [220, 3.28, 0.34],
+      [165, 3.72, 0.2], [196, 3.96, 0.2], [220, 4.2, 0.2], [247, 4.44, 0.44]
+    ];
+    notes.forEach(([frequency, offset, duration], index) => {
+      if (!frequency) return;
+      const osc = this.context.createOscillator();
+      const gain = this.context.createGain();
+      osc.type = index % 4 === 0 ? "square" : "triangle";
+      osc.frequency.setValueAtTime(frequency, now + offset);
+      gain.gain.setValueAtTime(0.001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.075, now + offset + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + duration);
+      osc.connect(gain);
+      gain.connect(this.context.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + duration + 0.04);
+    });
+    for (let beat = 0; beat < 10; beat++) {
+      const osc = this.context.createOscillator();
+      const gain = this.context.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(82, now + beat * 0.48);
+      gain.gain.setValueAtTime(0.001, now + beat * 0.48);
+      gain.gain.exponentialRampToValueAtTime(0.05, now + beat * 0.48 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + beat * 0.48 + 0.18);
+      osc.connect(gain);
+      gain.connect(this.context.destination);
+      osc.start(now + beat * 0.48);
+      osc.stop(now + beat * 0.48 + 0.22);
+    }
   }
 }
 
@@ -477,7 +522,7 @@ class Enemy {
     return { x: this.x + 3, y: this.y + 3, w: this.w - 6, h: this.h - 6 };
   }
 
-  draw(ctx, assets) {
+  draw(ctx, assets, graveyardMode = false) {
     ctx.save();
     if (this.hitFlash > 0) {
       ctx.filter = "brightness(2.4)";
@@ -486,6 +531,17 @@ class Enemy {
     ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
     ctx.scale(1, wingPulse);
     ctx.drawImage(assets.get(this.asset), -this.w / 2, -this.h / 2, this.w, this.h);
+    if (graveyardMode) {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(126, 211, 83, 0.46)";
+      ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#d8ff9a";
+      ctx.beginPath();
+      ctx.arc(-this.w * 0.14, -this.h * 0.12, 3, 0, Math.PI * 2);
+      ctx.arc(this.w * 0.12, -this.h * 0.12, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
     if (this.maxHealth > 1) {
       ctx.fillStyle = "rgba(16, 24, 32, 0.45)";
@@ -697,6 +753,12 @@ class Game {
     this.pendingLevel = 0;
     this.lootboxChoices = [];
     this.jumpHeld = false;
+    this.graveyardMode = false;
+    this.fakeoutTimer = 0;
+    this.fakeoutDuration = 4.2;
+    this.fakeoutPlayerX = this.player.x;
+    this.monsterMashPresses = [];
+    this.monsterMashCooldown = 0;
     this.updateButtons();
   }
 
@@ -733,7 +795,8 @@ class Game {
       } else if (event.key.toLowerCase() === "p") {
         this.togglePause();
       } else if (event.key.toLowerCase() === "m") {
-        this.audio.toggleMute();
+        if (!this.registerMonsterMashPress()) this.audio.toggleMute();
+        this.updateButtons();
       }
     });
     window.addEventListener("keyup", (event) => {
@@ -818,6 +881,7 @@ class Game {
     if (this.pendingEntry) return;
     if (this.onboardingVisible) return;
     if (this.state === "levelup") return;
+    if (this.state === "fakeout") return;
     this.audio.ensure();
     if (this.state === "start" || this.state === "gameover") {
       this.reset();
@@ -828,6 +892,7 @@ class Game {
 
   actionJump() {
     if (this.onboardingVisible) return;
+    if (this.state === "fakeout") return;
     if (this.state === "playing") this.player.jump(this.currentAcrobatics());
     else if (this.state === "start" || this.state === "gameover") this.startOrRestart();
   }
@@ -922,6 +987,23 @@ class Game {
     return this.advancedProgress.equipped.bullet || "spark";
   }
 
+  registerMonsterMashPress() {
+    const now = performance.now() / 1000;
+    this.monsterMashPresses = this.monsterMashPresses.filter((time) => now - time <= MONSTER_MASH_WINDOW);
+    this.monsterMashPresses.push(now);
+    if (this.monsterMashPresses.length < MONSTER_MASH_TRIGGER_COUNT || now < this.monsterMashCooldown) {
+      return this.monsterMashPresses.length > 1;
+    }
+    this.monsterMashPresses = [];
+    this.monsterMashCooldown = now + 6;
+    this.audio.playMonsterMash();
+    this.updateButtons();
+    for (let i = 0; i < 36; i++) {
+      this.spawnParticle(rand(190, WIDTH - 110), rand(86, GROUND_Y - 20), "#b6ff72", rand(2, 6), rand(-80, 80), rand(-180, -20), 0.72);
+    }
+    return true;
+  }
+
   checkProgressWipeCode() {
     if (this.initials !== "SAI") return false;
     wipeLocalProgress();
@@ -1001,6 +1083,7 @@ class Game {
     const dt = Math.min(0.033, (timestamp - this.lastTime) / 1000 || 0);
     this.lastTime = timestamp;
     if (this.state === "playing") this.update(dt);
+    if (this.state === "fakeout") this.updateFakeout(dt);
     this.draw();
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -1023,6 +1106,21 @@ class Game {
     this.cleanup();
     this.saveHighScore();
     this.checkLevelProgress();
+  }
+
+  updateFakeout(dt) {
+    this.fakeoutTimer += dt;
+    this.layers.forEach((layer) => layer.update(dt, 150));
+    this.particles.forEach((p) => p.update(dt));
+    this.fakeoutPlayerX = Math.min(520, this.fakeoutPlayerX + 118 * dt);
+    if (this.fakeoutTimer > this.fakeoutDuration) {
+      this.graveyardMode = true;
+      this.fakeoutTimer = 0;
+      this.fakeoutPlayerX = this.player.x;
+      this.state = "playing";
+      this.audio.beep("grave");
+      this.updateButtons();
+    }
   }
 
   updateWeapons(dt) {
@@ -1301,9 +1399,23 @@ class Game {
       this.audio.beep("win");
       this.spawnPowerUp();
       for (let i = 0; i < 34; i++) this.spawnParticle(this.boss.x + this.boss.w / 2, this.boss.y + this.boss.h / 2, "#ffcc4d", rand(3, 7), rand(-230, 230), rand(-260, 40), 0.85);
+      const shouldStartGraveyard = this.boss.kind === "beetle" && this.bossCount === 1 && !this.graveyardMode;
       this.boss = null;
+      if (shouldStartGraveyard) this.startGraveyardFakeout();
     }
     if (this.player.health <= 0) this.gameOver();
+  }
+
+  startGraveyardFakeout() {
+    this.state = "fakeout";
+    this.fakeoutTimer = 0;
+    this.fakeoutPlayerX = this.player.x;
+    this.enemies = [];
+    this.powerUps = [];
+    this.bullets = [];
+    this.nextBossTime = this.elapsed + 34;
+    for (let i = 0; i < 24; i++) this.spawnParticle(rand(500, 780), GROUND_Y - rand(6, 40), "#2d2438", rand(3, 8), rand(-70, 70), rand(-170, -20), 0.9);
+    this.updateButtons();
   }
 
   explode(x, y, radius, damage) {
@@ -1371,18 +1483,43 @@ class Game {
     this.bullets.forEach((b) => b.draw(ctx));
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);
     if (this.boss) this.boss.draw(ctx, this.assets);
-    this.enemies.forEach((e) => e.draw(ctx, this.assets));
-    this.player.draw(ctx, this.assets, this.upgradeLevel, this.advancedProgress.equipped);
+    this.enemies.forEach((e) => e.draw(ctx, this.assets, this.graveyardMode));
+    if (this.state === "fakeout") this.drawFakeoutPlayer(ctx);
+    else this.player.draw(ctx, this.assets, this.upgradeLevel, this.advancedProgress.equipped);
     if (this.activeWeapon === "drone") this.drawDrone(ctx);
     this.particles.forEach((p) => p.draw(ctx));
     this.drawUI(ctx);
     if (this.state === "start") this.drawStartOverlay(ctx);
     if (this.state === "paused") this.drawOverlay(ctx, "Paused", "Take a breath.", "Press P to Resume");
+    if (this.state === "fakeout") this.drawFakeoutOverlay(ctx);
     if (this.state === "levelup") this.drawOverlay(ctx, `Level ${this.pendingLevel}`, "Pick one lootbox.", "CHOOSE A REWARD");
     if (this.state === "gameover") this.drawGameOverOverlay(ctx);
   }
 
   drawBackground(ctx) {
+    if (this.graveyardMode || this.state === "fakeout") {
+      const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      sky.addColorStop(0, "#0b1024");
+      sky.addColorStop(0.58, "#17203d");
+      sky.addColorStop(1, "#24304c");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = "rgba(236, 254, 255, 0.82)";
+      ctx.beginPath();
+      ctx.arc(792, 62, 27, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(11, 16, 36, 0.9)";
+      ctx.beginPath();
+      ctx.arc(780, 54, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(216, 236, 244, 0.72)";
+      for (let i = 0; i < 18; i++) {
+        const x = (i * 71 + 34) % WIDTH;
+        const y = 24 + (i * 37) % 116;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      return;
+    }
     const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
     sky.addColorStop(0, "#8bdcff");
     sky.addColorStop(0.66, "#d8f6ff");
@@ -1396,6 +1533,16 @@ class Game {
   }
 
   drawGround(ctx) {
+    if (this.graveyardMode || this.state === "fakeout") {
+      ctx.fillStyle = "#171b24";
+      ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
+      ctx.fillStyle = "#293524";
+      ctx.fillRect(0, GROUND_Y - 10, WIDTH, 14);
+      ctx.fillStyle = "rgba(216, 236, 244, 0.34)";
+      for (let x = 32; x < WIDTH; x += 106) this.drawTombstone(ctx, x, GROUND_Y - 42, 30, 42);
+      this.drawOpenGrave(ctx, 548, GROUND_Y - 7, 112, 28);
+      return;
+    }
     ctx.fillStyle = "#72523a";
     ctx.fillRect(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y);
     ctx.fillStyle = "#65bd65";
@@ -1403,6 +1550,56 @@ class Game {
     ctx.fillStyle = "rgba(255,255,255,0.16)";
     const dashOffset = -(this.elapsed * this.worldSpeed) % 48;
     for (let x = dashOffset; x < WIDTH; x += 48) ctx.fillRect(x, GROUND_Y + 22, 24, 4);
+  }
+
+  drawTombstone(ctx, x, y, w, h) {
+    ctx.save();
+    ctx.fillStyle = "rgba(127, 143, 166, 0.74)";
+    ctx.beginPath();
+    ctx.moveTo(x, y + h);
+    ctx.lineTo(x, y + h * 0.35);
+    ctx.quadraticCurveTo(x + w / 2, y - 8, x + w, y + h * 0.35);
+    ctx.lineTo(x + w, y + h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(11, 16, 36, 0.42)";
+    ctx.fillRect(x + 8, y + 17, w - 16, 3);
+    ctx.restore();
+  }
+
+  drawOpenGrave(ctx, x, y, w, h) {
+    ctx.save();
+    ctx.fillStyle = "rgba(4, 6, 12, 0.82)";
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(126, 91, 54, 0.9)";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawFakeoutPlayer(ctx) {
+    ctx.save();
+    const fall = clamp((this.fakeoutTimer - 2.55) / 1.1, 0, 1);
+    const y = this.player.y + fall * 58;
+    ctx.globalAlpha = 1 - fall * 0.72;
+    ctx.translate(this.fakeoutPlayerX + this.player.w / 2, y + this.player.h / 2);
+    ctx.rotate(fall * 0.45);
+    ctx.drawImage(this.assets.get("player"), -this.player.w / 2, -this.player.h / 2, this.player.w, this.player.h);
+    ctx.restore();
+  }
+
+  drawFakeoutOverlay(ctx) {
+    ctx.save();
+    ctx.fillStyle = "rgba(8, 14, 28, 0.34)";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.textAlign = "center";
+    ctx.font = "900 22px Avenir, sans-serif";
+    ctx.fillStyle = "#ecfeff";
+    const text = this.fakeoutTimer < 1.7 ? "That beetle was only guarding the graveyard." : this.fakeoutTimer < 3 ? "The runner falls in..." : "Night falls. The swarm rises.";
+    ctx.fillText(text, WIDTH / 2, 118);
+    ctx.restore();
   }
 
   drawLaser(ctx) {
@@ -1494,6 +1691,14 @@ class Game {
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 13px Avenir, sans-serif";
       ctx.fillText("Muted", WIDTH - 78, this.upgradeLevel ? 112 : 80);
+    }
+    if (this.graveyardMode) {
+      ctx.fillStyle = "rgba(8, 14, 28, 0.86)";
+      roundRect(ctx, 16, 110, 166, 26, 8);
+      ctx.fill();
+      ctx.fillStyle = "#b6ff72";
+      ctx.font = "800 13px Avenir, sans-serif";
+      ctx.fillText("Graveyard Zombies", 30, 128);
     }
     if (this.boss) this.drawBossBar(ctx);
     ctx.restore();

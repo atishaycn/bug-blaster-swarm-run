@@ -20,6 +20,7 @@ The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment vari
 - `Enter`: start or restart
 - `P`: pause or unpause
 - `M`: mute or unmute generated audio
+- Mash `M` 30 times in 10 seconds: play the hidden monster mash riff
 - Click/touch anywhere on the page: jump, start, or restart
 
 ## Gameplay
@@ -40,7 +41,7 @@ Lootboxes unlock and equip customization rewards across three categories:
 - Bullet types: changes the visual shape/color of blaster rounds.
 - Acrobatics: changes jump style, including backflips and a two-second hold-to-hover move.
 
-Advanced unlocks persist locally under `bugBlasterAdvancedProgress`. On the high-score initials screen, entering `SAI` wipes local progress, high score, local leaderboard, personal bests, onboarding state, and advanced unlocks.
+Advanced unlocks persist locally under `bugBlasterAdvancedProgress`. After the first Giant Beetle Boss is defeated, the run briefly fakes out a death scene: the runner falls into an open grave, night falls, and the game continues in a graveyard theme with zombie-styled enemies. As an audio easter egg, pressing `M` 30 times within 10 seconds plays a generated MIDI-like monster mash riff. On the high-score initials screen, entering `SAI` wipes local progress, high score, local leaderboard, personal bests, onboarding state, and advanced unlocks.
 
 ## Enemy Types
 

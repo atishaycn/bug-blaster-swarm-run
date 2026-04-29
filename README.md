@@ -12,7 +12,7 @@ For the shared top-10 score backend, run through Vercel:
 vercel dev
 ```
 
-The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment variables in production and falls back to `.data/scores.json` locally.
+The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment variables in production. Without those variables it falls back to `.data/scores.json` locally and `/tmp/bug-blaster-scores.json` on Vercel, which is useful for demos but not durable across cold starts.
 
 ## Controls
 

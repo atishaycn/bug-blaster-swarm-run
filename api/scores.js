@@ -2,7 +2,9 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const KEY = "bug-blaster:leaderboard";
-const LOCAL_FILE = path.join(process.cwd(), ".data", "scores.json");
+const LOCAL_FILE = process.env.VERCEL
+  ? path.join("/tmp", "bug-blaster-scores.json")
+  : path.join(process.cwd(), ".data", "scores.json");
 const LIMIT = 10;
 
 const DEFAULT_ROWS = [

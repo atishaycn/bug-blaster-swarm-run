@@ -240,6 +240,88 @@ canvas {
   color: #2b170d;
 }
 
+.lootbox-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: none;
+  place-items: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 209, 102, 0.3), transparent 18rem),
+    rgba(8, 14, 28, 0.72);
+}
+
+.lootbox-panel.is-visible {
+  display: grid;
+}
+
+.lootbox-card {
+  width: min(720px, 100%);
+  padding: clamp(16px, 2.6vw, 24px);
+  border: 1px solid rgba(255, 209, 102, 0.48);
+  border-radius: 8px;
+  color: #fffaf0;
+  background: rgba(8, 14, 28, 0.94);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.34);
+}
+
+.lootbox-kicker {
+  margin: 0 0 6px;
+  color: #ffd166;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lootbox-card h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.5rem, 3.7vw, 2.2rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.lootbox-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lootbox-option {
+  min-height: 128px;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255, 250, 240, 0.16);
+  border-radius: 8px;
+  color: #fffaf0;
+  background:
+    linear-gradient(145deg, rgba(255, 107, 53, 0.28), rgba(95, 200, 166, 0.18)),
+    rgba(25, 50, 60, 0.82);
+  text-align: left;
+}
+
+.lootbox-option:hover {
+  background:
+    linear-gradient(145deg, rgba(255, 209, 102, 0.32), rgba(95, 200, 166, 0.26)),
+    rgba(37, 73, 87, 0.92);
+}
+
+.lootbox-option strong {
+  font-size: 1rem;
+  line-height: 1.08;
+}
+
+.lootbox-option span {
+  color: #d8ecf4;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .control-strip {
   display: flex;
   flex-wrap: wrap;
@@ -321,6 +403,41 @@ canvas {
     padding: 0 10px;
   }
 
+  .onboarding-panel {
+    padding: 8px;
+  }
+
+  .onboarding-card {
+    width: min(320px, 100%);
+    max-height: calc(100% - 16px);
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .onboarding-kicker {
+    margin-bottom: 4px;
+    font-size: 0.62rem;
+  }
+
+  .onboarding-card h2 {
+    margin-bottom: 8px;
+    font-size: 1.45rem;
+    line-height: 1.02;
+  }
+
+  .onboarding-card ul {
+    gap: 5px;
+    margin-bottom: 10px;
+    padding-left: 16px;
+    font-size: 0.78rem;
+    line-height: 1.18;
+  }
+
+  .onboarding-card button {
+    min-height: 34px;
+    font-size: 0.88rem;
+  }
+
   .control-strip {
     justify-content: center;
     gap: 6px;
@@ -331,6 +448,19 @@ canvas {
     min-height: 26px;
     padding: 0 9px;
     font-size: 0.76rem;
+  }
+
+  .lootbox-panel {
+    padding: 10px;
+  }
+
+  .lootbox-options {
+    grid-template-columns: 1fr;
+  }
+
+  .lootbox-option {
+    min-height: 74px;
+    padding: 10px 12px;
   }
 }
 

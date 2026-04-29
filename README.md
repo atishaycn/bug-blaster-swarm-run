@@ -30,6 +30,18 @@ New players see a short one-time onboarding card before their first run. It expl
 
 There are no hurdles, rocks, logs, spike mounds, or non-enemy obstacles. The challenge comes entirely from enemy contact, swarm density, boss pressure, and weapon timing.
 
+## Advanced Version
+
+The `advanced-version` branch adds a parallel progression layer. Score acts as experience: level 1 starts at 500 points, level 2 at 1,000, level 3 at 2,000, then each next level doubles the required score. When a run crosses a level threshold, gameplay pauses and the player picks one of three lootboxes.
+
+Lootboxes unlock and equip customization rewards across three categories:
+
+- Outfits: changes the player's shirt/accent style.
+- Bullet types: changes the visual shape/color of blaster rounds.
+- Acrobatics: changes jump style, including backflips and a two-second hold-to-hover move.
+
+Advanced unlocks persist locally under `bugBlasterAdvancedProgress`. On the high-score initials screen, entering `SAI` wipes local progress, high score, local leaderboard, personal bests, onboarding state, and advanced unlocks.
+
 ## Enemy Types
 
 - Ground Crawler: early ground bug, 1 health, 10 points

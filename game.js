@@ -10,6 +10,7 @@ const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
 const ONBOARDING_KEY = "bugBlasterRunnerOnboardingSeen";
+const ADVANCED_PROGRESS_KEY = "bugBlasterAdvancedProgress";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
@@ -56,6 +57,7 @@ const PICKUPS = {
 };
 
 const MAX_UPGRADE_LEVEL = 10;
+const LEVEL_BASE_SCORE = 500;
 const CORE_LEVEL_COLORS = [
   { shirt: "#2f8fdd", shot: "#fff4a3", stroke: "#d9731f", glow: "#fff4a3" },
   { shirt: "#35b6ff", shot: "#8ee8ff", stroke: "#176d9b", glow: "#8ee8ff" },
@@ -68,6 +70,39 @@ const CORE_LEVEL_COLORS = [
   { shirt: "#4f46e5", shot: "#a5b4fc", stroke: "#2d237f", glow: "#a5b4fc" },
   { shirt: "#0f766e", shot: "#99f6e4", stroke: "#134e4a", glow: "#99f6e4" },
   { shirt: "#ecfeff", shot: "#ffffff", stroke: "#2f66d5", glow: "#9af6ff" }
+];
+
+const OUTFITS = {
+  classic: { name: "Classic Runner", shirt: null, accent: "#ffd166", note: "Original Bug Blaster look." },
+  sunset: { name: "Sunset Jacket", shirt: "#ff6b35", accent: "#ffe866", note: "Bright orange outfit tint." },
+  mint: { name: "Mint Scout", shirt: "#5fc8a6", accent: "#ecfeff", note: "Cool green outfit tint." },
+  violet: { name: "Violet Volt", shirt: "#8b5cf6", accent: "#f5d0fe", note: "Electric purple outfit tint." },
+  shadow: { name: "Shadow Suit", shirt: "#19323c", accent: "#9af6ff", note: "Dark suit with blue highlights." }
+};
+
+const BULLET_STYLES = {
+  spark: { name: "Spark Rounds", shot: null, stroke: null, glow: null, shape: "ellipse", note: "Classic glowing bug blaster shots." },
+  bubble: { name: "Bubble Bursts", shot: "#7dd3fc", stroke: "#0ea5e9", glow: "#bae6fd", shape: "bubble", note: "Round blue plasma bubbles." },
+  ember: { name: "Ember Bolts", shot: "#fb923c", stroke: "#7c2d12", glow: "#fed7aa", shape: "diamond", note: "Angular orange bolts." },
+  star: { name: "Star Shots", shot: "#fde047", stroke: "#a16207", glow: "#fef9c3", shape: "star", note: "Tiny star-shaped rounds." }
+};
+
+const ACROBATICS = {
+  classic: { name: "Classic Jump", note: "Reliable standard jump." },
+  backflip: { name: "Backflip", note: "Spin through every jump." },
+  hover: { name: "Two-Second Hover", note: "Hold jump while falling to hover for up to 2 seconds." }
+};
+
+const LOOT_REWARDS = [
+  { category: "outfits", id: "sunset" },
+  { category: "outfits", id: "mint" },
+  { category: "outfits", id: "violet" },
+  { category: "outfits", id: "shadow" },
+  { category: "bullets", id: "bubble" },
+  { category: "bullets", id: "ember" },
+  { category: "bullets", id: "star" },
+  { category: "acrobatics", id: "backflip" },
+  { category: "acrobatics", id: "hover" }
 ];
 const ROCKET = {
   baseSpeed: 660,
@@ -213,6 +248,8 @@ class Player {
     this.grounded = true;
     this.walkTime = 0;
     this.recoil = 0;
+    this.airTime = 0;
+    this.hoverTime = 0;
   }
 
   reset() {
@@ -224,23 +261,35 @@ class Player {
     this.grounded = true;
     this.walkTime = 0;
     this.recoil = 0;
+    this.airTime = 0;
+    this.hoverTime = 0;
   }
 
-  jump() {
+  jump(acrobatics = "classic") {
     if (this.grounded) {
       this.vy = -760;
       this.grounded = false;
+      this.airTime = 0;
+      this.hoverTime = acrobatics === "hover" ? 2 : 0;
     }
   }
 
-  update(dt) {
+  update(dt, acrobatics = "classic", jumpHeld = false) {
     this.walkTime += dt;
     this.vy += 2050 * dt;
+    if (acrobatics === "hover" && jumpHeld && !this.grounded && this.vy > -80 && this.hoverTime > 0) {
+      this.hoverTime = Math.max(0, this.hoverTime - dt);
+      this.vy = Math.min(this.vy, 72);
+    }
     this.y += this.vy * dt;
     if (this.y + this.h >= GROUND_Y) {
       this.y = GROUND_Y - this.h;
       this.vy = 0;
       this.grounded = true;
+      this.airTime = 0;
+      this.hoverTime = 0;
+    } else {
+      this.airTime += dt;
     }
     if (this.invincible > 0) this.invincible -= dt;
     this.recoil = Math.max(0, this.recoil - dt * 6);
@@ -261,17 +310,34 @@ class Player {
     return { x: this.x + 10, y: this.y + 8, w: this.w - 16, h: this.h - 8 };
   }
 
-  draw(ctx, assets, coreLevel = 0) {
+  draw(ctx, assets, coreLevel = 0, customization = defaultAdvancedProgress().equipped) {
     const blink = this.invincible > 0 && Math.floor(this.invincible * 14) % 2 === 0;
     if (blink) ctx.globalAlpha = 0.45;
     const drawX = this.x - this.recoil * 5;
-    ctx.drawImage(assets.get("player"), drawX, this.y, this.w, this.h);
+    const acrobatics = customization.acrobatics || "classic";
+    const rotation = acrobatics === "backflip" && !this.grounded ? this.airTime * Math.PI * 3.2 : 0;
+    ctx.save();
+    if (rotation) {
+      ctx.translate(drawX + this.w / 2, this.y + this.h / 2);
+      ctx.rotate(rotation);
+      ctx.drawImage(assets.get("player"), -this.w / 2, -this.h / 2, this.w, this.h);
+    } else {
+      ctx.drawImage(assets.get("player"), drawX, this.y, this.w, this.h);
+    }
     const colors = coreLevelColors(coreLevel);
+    const outfit = OUTFITS[customization.outfit] || OUTFITS.classic;
     ctx.save();
     ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = colors.shirt;
-    tracePlayerShirt(ctx, drawX, this.y, this.w, this.h);
+    ctx.fillStyle = outfit.shirt || colors.shirt;
+    tracePlayerShirt(ctx, rotation ? -this.w / 2 : drawX, rotation ? -this.h / 2 : this.y, this.w, this.h);
     ctx.fill();
+    ctx.restore();
+    if (outfit.accent) {
+      ctx.fillStyle = outfit.accent;
+      ctx.beginPath();
+      ctx.arc(rotation ? 3 : drawX + this.w / 2 + 3, rotation ? -this.h / 2 + 18 : this.y + 18, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
     ctx.globalAlpha = 1;
     if (DEBUG) drawRect(ctx, this.hitbox(), "#ff00ff");
@@ -279,7 +345,7 @@ class Player {
 }
 
 class Bullet {
-  constructor(x, y, vx, vy, type, damage, pierce, colors) {
+  constructor(x, y, vx, vy, type, damage, pierce, colors, bulletStyle = "spark") {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -291,6 +357,7 @@ class Bullet {
     this.dead = false;
     this.hitIds = new Set();
     this.colors = colors;
+    this.bulletStyle = bulletStyle;
   }
 
   update(dt) {
@@ -301,11 +368,12 @@ class Bullet {
 
   draw(ctx) {
     ctx.save();
-    const fill = this.colors?.shot || (this.type === "rocket" ? "#f97316" : this.type === "drone" ? "#9af6ff" : "#fff4a3");
+    const cosmetic = BULLET_STYLES[this.bulletStyle] || BULLET_STYLES.spark;
+    const fill = cosmetic.shot || this.colors?.shot || (this.type === "rocket" ? "#f97316" : this.type === "drone" ? "#9af6ff" : "#fff4a3");
     ctx.fillStyle = fill;
-    ctx.strokeStyle = this.colors?.stroke || (this.type === "rocket" ? "#19323c" : "#d9731f");
+    ctx.strokeStyle = cosmetic.stroke || this.colors?.stroke || (this.type === "rocket" ? "#19323c" : "#d9731f");
     ctx.lineWidth = 2;
-    ctx.shadowColor = this.colors?.glow || fill;
+    ctx.shadowColor = cosmetic.glow || this.colors?.glow || fill;
     ctx.shadowBlur = this.type === "rocket" ? 12 : 8;
     if (this.type === "rocket") {
       ctx.beginPath();
@@ -318,10 +386,25 @@ class Bullet {
       ctx.lineTo(this.x - 22, this.y + 5);
       ctx.fill();
     } else {
-      ctx.beginPath();
-      ctx.ellipse(this.x, this.y, 10, this.radius + 1, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      if (cosmetic.shape === "diamond") {
+        ctx.beginPath();
+        ctx.moveTo(this.x + 12, this.y);
+        ctx.lineTo(this.x, this.y - 8);
+        ctx.lineTo(this.x - 12, this.y);
+        ctx.lineTo(this.x, this.y + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (cosmetic.shape === "star") {
+        drawStar(ctx, this.x, this.y, 5, 11, 5);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, cosmetic.shape === "bubble" ? 8 : 10, cosmetic.shape === "bubble" ? 8 : this.radius + 1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -555,11 +638,15 @@ class Game {
     this.initialsSave = document.getElementById("initialsSave");
     this.onboardingPanel = document.getElementById("onboardingPanel");
     this.onboardingButton = document.getElementById("onboardingButton");
+    this.lootboxPanel = document.getElementById("lootboxPanel");
+    this.lootboxOptions = document.getElementById("lootboxOptions");
     this.onboardingVisible = localStorage.getItem(ONBOARDING_KEY) !== "true";
     this.initialsPanelVisible = false;
+    this.lootboxPanelVisible = false;
     this.assets = new AssetManager(ASSET_PATHS);
     this.audio = new AudioManager();
     this.player = new Player();
+    this.advancedProgress = loadAdvancedProgress();
     this.leaderboard = loadLeaderboard();
     this.personalScores = loadPersonalScores();
     this.pendingEntry = null;
@@ -606,6 +693,10 @@ class Game {
     this.difficulty = 0;
     this.pendingEntry = null;
     this.initials = "";
+    this.playerLevel = 0;
+    this.pendingLevel = 0;
+    this.lootboxChoices = [];
+    this.jumpHeld = false;
     this.updateButtons();
   }
 
@@ -624,6 +715,7 @@ class Game {
         }
         return;
       }
+      if (this.state === "levelup") return;
       if (this.onboardingVisible) {
         if (event.key === "Enter" || event.key === " " || event.code === "Space") {
           event.preventDefault();
@@ -633,6 +725,7 @@ class Game {
       }
       if (["Space", "ArrowUp"].includes(event.code) || event.key.toLowerCase() === "w") {
         event.preventDefault();
+        this.jumpHeld = true;
         this.actionJump();
       } else if (event.key === "Enter") {
         event.preventDefault();
@@ -641,6 +734,11 @@ class Game {
         this.togglePause();
       } else if (event.key.toLowerCase() === "m") {
         this.audio.toggleMute();
+      }
+    });
+    window.addEventListener("keyup", (event) => {
+      if (["Space", "ArrowUp"].includes(event.code) || event.key.toLowerCase() === "w") {
+        this.jumpHeld = false;
       }
     });
     window.addEventListener("pointerdown", (event) => {
@@ -656,8 +754,16 @@ class Game {
         this.focusInitialsInput();
         return;
       }
+      if (this.state === "levelup") return;
+      this.jumpHeld = true;
       this.actionJump();
     }, { passive: false });
+    window.addEventListener("pointerup", () => {
+      this.jumpHeld = false;
+    });
+    window.addEventListener("pointercancel", () => {
+      this.jumpHeld = false;
+    });
     this.canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -665,7 +771,10 @@ class Game {
         this.dismissOnboarding();
         return;
       }
-      if (!this.pendingEntry) this.actionJump();
+      if (!this.pendingEntry && this.state !== "levelup") {
+        this.jumpHeld = true;
+        this.actionJump();
+      }
     }, { passive: false });
     this.restartButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -678,6 +787,7 @@ class Game {
     this.initialsInput.addEventListener("input", () => {
       this.initials = this.initialsInput.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
       this.initialsInput.value = this.initials;
+      this.checkProgressWipeCode();
       this.updateInitialsPanel();
     });
     this.initialsPanel.addEventListener("submit", (event) => {
@@ -694,11 +804,20 @@ class Game {
     this.onboardingPanel?.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     });
+    this.lootboxOptions?.addEventListener("click", (event) => {
+      const button = event.target.closest?.("[data-loot-index]");
+      if (!button) return;
+      this.claimLootbox(Number(button.dataset.lootIndex));
+    });
+    this.lootboxPanel?.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
   }
 
   startOrRestart() {
     if (this.pendingEntry) return;
     if (this.onboardingVisible) return;
+    if (this.state === "levelup") return;
     this.audio.ensure();
     if (this.state === "start" || this.state === "gameover") {
       this.reset();
@@ -709,7 +828,7 @@ class Game {
 
   actionJump() {
     if (this.onboardingVisible) return;
-    if (this.state === "playing") this.player.jump();
+    if (this.state === "playing") this.player.jump(this.currentAcrobatics());
     else if (this.state === "start" || this.state === "gameover") this.startOrRestart();
   }
 
@@ -727,6 +846,7 @@ class Game {
     this.muteButton.textContent = this.audio.muted ? "Sound Off" : "Sound On";
     this.restartButton.classList.toggle("is-visible", this.state === "gameover" && !this.pendingEntry);
     this.updateInitialsPanel();
+    this.updateLootboxPanel();
   }
 
   dismissOnboarding() {
@@ -769,6 +889,7 @@ class Game {
   addInitial(letter) {
     if (!this.pendingEntry || this.initials.length >= 3) return;
     this.initials += letter;
+    this.checkProgressWipeCode();
     this.updateInitialsPanel();
   }
 
@@ -780,6 +901,7 @@ class Game {
 
   submitInitials() {
     if (!this.pendingEntry || this.initials.length !== 3) return;
+    if (this.checkProgressWipeCode()) return;
     const entry = { initials: this.initials, score: this.pendingEntry.score };
     this.leaderboard = normalizeScores([...this.leaderboard, entry]);
     saveLocalLeaderboard(this.leaderboard);
@@ -790,6 +912,78 @@ class Game {
     this.pendingEntry = null;
     this.initials = "";
     this.updateButtons();
+  }
+
+  currentAcrobatics() {
+    return this.advancedProgress.equipped.acrobatics || "classic";
+  }
+
+  currentBulletStyle() {
+    return this.advancedProgress.equipped.bullet || "spark";
+  }
+
+  checkProgressWipeCode() {
+    if (this.initials !== "SAI") return false;
+    wipeLocalProgress();
+    this.leaderboard = [];
+    this.personalScores = [];
+    this.highScore = 0;
+    this.advancedProgress = defaultAdvancedProgress();
+    this.pendingEntry = null;
+    this.initials = "";
+    this.reset();
+    this.state = "start";
+    this.updateButtons();
+    return true;
+  }
+
+  checkLevelProgress() {
+    const nextLevel = this.playerLevel + 1;
+    if (Math.floor(this.score) < scoreForLevel(nextLevel)) return;
+    this.pendingLevel = nextLevel;
+    this.lootboxChoices = buildLootboxChoices(this.advancedProgress, nextLevel);
+    this.state = "levelup";
+    this.updateButtons();
+  }
+
+  updateLootboxPanel() {
+    if (!this.lootboxPanel || !this.lootboxOptions) return;
+    const visible = this.state === "levelup";
+    const wasVisible = this.lootboxPanelVisible;
+    this.lootboxPanelVisible = visible;
+    this.lootboxPanel.classList.toggle("is-visible", visible);
+    this.lootboxPanel.setAttribute("aria-hidden", String(!visible));
+    if (!visible) {
+      this.lootboxOptions.replaceChildren();
+      return;
+    }
+    if (!wasVisible) {
+      this.lootboxOptions.replaceChildren(...this.lootboxChoices.map((choice, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "lootbox-option";
+        button.dataset.lootIndex = String(index);
+        button.innerHTML = `<strong>${escapeHtml(choice.name)}</strong><span>${escapeHtml(choice.categoryLabel)} - ${escapeHtml(choice.note)}</span>`;
+        return button;
+      }));
+      window.setTimeout(() => this.lootboxOptions.querySelector("button")?.focus({ preventScroll: true }), 0);
+    }
+  }
+
+  claimLootbox(index) {
+    if (this.state !== "levelup") return;
+    const choice = this.lootboxChoices[index];
+    if (!choice) return;
+    unlockAdvancedReward(this.advancedProgress, choice);
+    saveAdvancedProgress(this.advancedProgress);
+    this.playerLevel = Math.max(this.playerLevel, this.pendingLevel);
+    this.pendingLevel = 0;
+    this.lootboxChoices = [];
+    this.state = "playing";
+    this.audio.beep("power");
+    for (let i = 0; i < 18; i++) this.spawnParticle(this.player.x + 32, this.player.y + 28, choice.color, rand(2, 6), rand(-180, 180), rand(-230, -40), 0.58);
+    this.updateButtons();
+    this.checkLevelProgress();
   }
 
   async syncScores() {
@@ -817,7 +1011,7 @@ class Game {
     this.worldSpeed = Math.min(520, 230 + this.elapsed * 4.4);
     this.score += dt * 8.5;
     this.layers.forEach((layer) => layer.update(dt, this.worldSpeed));
-    this.player.update(dt);
+    this.player.update(dt, this.currentAcrobatics(), this.jumpHeld);
     this.updateWeapons(dt);
     this.updateSpawns(dt);
     this.bullets.forEach((b) => b.update(dt));
@@ -828,6 +1022,7 @@ class Game {
     this.handleCollisions();
     this.cleanup();
     this.saveHighScore();
+    this.checkLevelProgress();
   }
 
   updateWeapons(dt) {
@@ -858,7 +1053,7 @@ class Game {
       if (this.droneFireTimer <= 0) {
         this.droneFireTimer = clamp(0.34 - this.upgradeLevel * 0.012, 0.24, 0.34);
         const barrel = this.player.barrel();
-        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1, coreLevelColors(this.upgradeLevel)));
+        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1, coreLevelColors(this.upgradeLevel), this.currentBulletStyle()));
         this.audio.beep("shoot");
       }
     }
@@ -885,7 +1080,7 @@ class Game {
   fireBullet(vy = 0, type = "normal", damage = 1, pierce = 1, speed = 760) {
     const barrel = this.player.barrel();
     const colors = type === "rocket" ? null : coreLevelColors(this.upgradeLevel);
-    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce, colors));
+    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce, colors, this.currentBulletStyle()));
     this.player.recoil = 1;
     this.audio.beep("shoot");
   }
@@ -1150,12 +1345,13 @@ class Game {
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);
     if (this.boss) this.boss.draw(ctx, this.assets);
     this.enemies.forEach((e) => e.draw(ctx, this.assets));
-    this.player.draw(ctx, this.assets, this.upgradeLevel);
+    this.player.draw(ctx, this.assets, this.upgradeLevel, this.advancedProgress.equipped);
     if (this.activeWeapon === "drone") this.drawDrone(ctx);
     this.particles.forEach((p) => p.draw(ctx));
     this.drawUI(ctx);
     if (this.state === "start") this.drawStartOverlay(ctx);
     if (this.state === "paused") this.drawOverlay(ctx, "Paused", "Take a breath.", "Press P to Resume");
+    if (this.state === "levelup") this.drawOverlay(ctx, `Level ${this.pendingLevel}`, "Pick one lootbox.", "CHOOSE A REWARD");
     if (this.state === "gameover") this.drawGameOverOverlay(ctx);
   }
 
@@ -1229,6 +1425,7 @@ class Game {
     ctx.fillText(`Health ${fullHearts}${emptyHearts}`, 30, 38);
     ctx.font = "800 16px Avenir, sans-serif";
     ctx.fillText(`Score ${score}   High ${this.highScore}`, 30, 60);
+    this.drawLevelBar(ctx, score);
     if (this.activeWeapon) {
       const weapon = WEAPONS[this.activeWeapon];
       const text = `${weapon.name} ${this.weaponTimer.toFixed(1)}s`;
@@ -1273,6 +1470,28 @@ class Game {
     }
     if (this.boss) this.drawBossBar(ctx);
     ctx.restore();
+  }
+
+  drawLevelBar(ctx, score) {
+    const nextLevel = this.playerLevel + 1;
+    const currentFloor = this.playerLevel > 0 ? scoreForLevel(this.playerLevel) : 0;
+    const nextScore = scoreForLevel(nextLevel);
+    const progress = clamp((score - currentFloor) / (nextScore - currentFloor), 0, 1);
+    ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
+    roundRect(ctx, 16, 76, 328, 28, 8);
+    ctx.fill();
+    const fill = ctx.createLinearGradient(28, 0, 328, 0);
+    fill.addColorStop(0, "#5fc8a6");
+    fill.addColorStop(1, "#ffd166");
+    ctx.fillStyle = fill;
+    roundRect(ctx, 28, 92, 232 * progress, 6, 3);
+    ctx.fill();
+    ctx.fillStyle = "#fff4d8";
+    ctx.font = "800 13px Avenir, sans-serif";
+    ctx.fillText(`Level ${this.playerLevel}  Next ${nextScore}`, 30, 94);
+    ctx.textAlign = "right";
+    ctx.fillText(`${Math.floor(progress * 100)}%`, 330, 94);
+    ctx.textAlign = "left";
   }
 
   drawBossBar(ctx) {
@@ -1466,6 +1685,110 @@ function normalizePersonalScores(rows) {
     .slice(0, LEADERBOARD_LIMIT);
 }
 
+function scoreForLevel(level) {
+  return LEVEL_BASE_SCORE * Math.pow(2, Math.max(0, level - 1));
+}
+
+function defaultAdvancedProgress() {
+  return {
+    unlocked: {
+      outfits: ["classic"],
+      bullets: ["spark"],
+      acrobatics: ["classic"]
+    },
+    equipped: {
+      outfit: "classic",
+      bullet: "spark",
+      acrobatics: "classic"
+    }
+  };
+}
+
+function loadAdvancedProgress() {
+  const defaults = defaultAdvancedProgress();
+  try {
+    const saved = JSON.parse(localStorage.getItem(ADVANCED_PROGRESS_KEY) || "null");
+    const progress = saved && typeof saved === "object" ? saved : defaults;
+    return normalizeAdvancedProgress(progress);
+  } catch {
+    return defaults;
+  }
+}
+
+function normalizeAdvancedProgress(progress) {
+  const defaults = defaultAdvancedProgress();
+  const unlocked = {
+    outfits: uniqueValid([...(progress.unlocked?.outfits || []), "classic"], OUTFITS),
+    bullets: uniqueValid([...(progress.unlocked?.bullets || []), "spark"], BULLET_STYLES),
+    acrobatics: uniqueValid([...(progress.unlocked?.acrobatics || []), "classic"], ACROBATICS)
+  };
+  const equipped = {
+    outfit: unlocked.outfits.includes(progress.equipped?.outfit) ? progress.equipped.outfit : defaults.equipped.outfit,
+    bullet: unlocked.bullets.includes(progress.equipped?.bullet) ? progress.equipped.bullet : defaults.equipped.bullet,
+    acrobatics: unlocked.acrobatics.includes(progress.equipped?.acrobatics) ? progress.equipped.acrobatics : defaults.equipped.acrobatics
+  };
+  return { unlocked, equipped };
+}
+
+function uniqueValid(values, catalog) {
+  return [...new Set(values)].filter((value) => catalog[value]);
+}
+
+function saveAdvancedProgress(progress) {
+  localStorage.setItem(ADVANCED_PROGRESS_KEY, JSON.stringify(normalizeAdvancedProgress(progress)));
+}
+
+function buildLootboxChoices(progress, level) {
+  const locked = LOOT_REWARDS.filter((reward) => !progress.unlocked[reward.category].includes(reward.id));
+  const pool = locked.length >= 3 ? locked : LOOT_REWARDS;
+  const start = Math.floor(rand(0, pool.length));
+  const choices = [];
+  for (let i = 0; choices.length < 3 && i < pool.length * 2; i++) {
+    const reward = pool[(start + i * 2 + level) % pool.length];
+    if (!choices.some((choice) => choice.category === reward.category && choice.id === reward.id)) choices.push(formatReward(reward));
+  }
+  while (choices.length < 3) choices.push(formatReward(LOOT_REWARDS[(level + choices.length) % LOOT_REWARDS.length]));
+  return choices;
+}
+
+function formatReward(reward) {
+  const catalog = reward.category === "outfits" ? OUTFITS : reward.category === "bullets" ? BULLET_STYLES : ACROBATICS;
+  const item = catalog[reward.id];
+  return {
+    ...reward,
+    name: item.name,
+    note: item.note,
+    color: item.accent || item.shot || "#ffd166",
+    categoryLabel: reward.category === "outfits" ? "Outfit" : reward.category === "bullets" ? "Bullet type" : "Acrobatics"
+  };
+}
+
+function unlockAdvancedReward(progress, reward) {
+  if (!progress.unlocked[reward.category].includes(reward.id)) progress.unlocked[reward.category].push(reward.id);
+  const equippedKey = reward.category === "outfits" ? "outfit" : reward.category === "bullets" ? "bullet" : "acrobatics";
+  progress.equipped[equippedKey] = reward.id;
+}
+
+function wipeLocalProgress() {
+  [
+    STORAGE_KEY,
+    LEADERBOARD_KEY,
+    PERSONAL_SCORES_KEY,
+    ADVANCED_PROGRESS_KEY,
+    ONBOARDING_KEY
+  ].forEach((key) => localStorage.removeItem(key));
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
 async function fetchScores() {
   for (const api of scoreApiCandidates()) {
     try {
@@ -1561,6 +1884,19 @@ function drawGlowText(ctx, text, x, y, fill, glow) {
   ctx.shadowBlur = 9;
   ctx.fillText(text, x, y);
   ctx.restore();
+}
+
+function drawStar(ctx, x, y, points, outerRadius, innerRadius) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const angle = -Math.PI / 2 + i * Math.PI / points;
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
 }
 
 function drawRect(ctx, rect, color) {

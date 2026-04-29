@@ -24,9 +24,9 @@
               <h2 id="onboardingTitle">Jump, blast, survive.</h2>
               <ul>
                 <li>Tap, Space, ArrowUp, or W to jump.</li>
-                <li>Your blaster fires automatically at incoming bugs.</li>
-                <li>Jump into floating power-ups for weapons, health, and Blaster Core levels.</li>
-                <li>Boss bugs appear over time. Last longer to reach the top 10.</li>
+                <li>Your blaster auto-fires at incoming bugs.</li>
+                <li>Jump into power-ups for weapons, health, and Core levels.</li>
+                <li>Survive bosses and chase the top 10.</li>
               </ul>
               <button id="onboardingButton" type="button">Got it</button>
             </div>
@@ -39,9 +39,17 @@
               <button id="initialsSave" type="submit">Save</button>
             </div>
           </form>
+          <section id="lootboxPanel" class="lootbox-panel" aria-labelledby="lootboxTitle" aria-modal="true" role="dialog">
+            <div class="lootbox-card">
+              <p class="lootbox-kicker">Level up</p>
+              <h2 id="lootboxTitle">Pick one lootbox.</h2>
+              <div id="lootboxOptions" class="lootbox-options" aria-label="Lootbox choices"></div>
+            </div>
+          </section>
         </div>
         <div class="control-strip" aria-label="Controls">
           <span>Space: Jump</span>
+          <span>Hold Jump: Hover unlock</span>
           <span>Tap Anywhere: Jump</span>
           <span>Enter: Start or Restart</span>
           <span>P: Pause</span>

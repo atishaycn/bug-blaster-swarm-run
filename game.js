@@ -54,6 +54,17 @@ const PICKUPS = {
 };
 
 const MAX_UPGRADE_LEVEL = 8;
+const CORE_LEVEL_COLORS = [
+  { shirt: "#2f8fdd", shot: "#fff4a3", stroke: "#d9731f", glow: "#fff4a3" },
+  { shirt: "#35b6ff", shot: "#8ee8ff", stroke: "#176d9b", glow: "#8ee8ff" },
+  { shirt: "#2dd4bf", shot: "#74f7c1", stroke: "#14785f", glow: "#74f7c1" },
+  { shirt: "#47c26b", shot: "#c8ff7a", stroke: "#55851a", glow: "#c8ff7a" },
+  { shirt: "#ffd166", shot: "#ffe866", stroke: "#a05b14", glow: "#ffe866" },
+  { shirt: "#f97316", shot: "#ff9d4d", stroke: "#8f2e12", glow: "#ff9d4d" },
+  { shirt: "#f43f5e", shot: "#ff75a0", stroke: "#8a1231", glow: "#ff75a0" },
+  { shirt: "#8b5cf6", shot: "#c4a7ff", stroke: "#43208e", glow: "#c4a7ff" },
+  { shirt: "#ecfeff", shot: "#ffffff", stroke: "#2f66d5", glow: "#9af6ff" }
+];
 const ROCKET = {
   baseSpeed: 660,
   speedUpgrade: 28,
@@ -75,6 +86,10 @@ function clamp(value, min, max) {
 
 function rand(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function coreLevelColors(level) {
+  return CORE_LEVEL_COLORS[clamp(Math.floor(level), 0, MAX_UPGRADE_LEVEL)];
 }
 
 function rectsOverlap(a, b) {
@@ -242,17 +257,30 @@ class Player {
     return { x: this.x + 10, y: this.y + 8, w: this.w - 16, h: this.h - 8 };
   }
 
-  draw(ctx, assets) {
+  draw(ctx, assets, coreLevel = 0) {
     const blink = this.invincible > 0 && Math.floor(this.invincible * 14) % 2 === 0;
     if (blink) ctx.globalAlpha = 0.45;
-    ctx.drawImage(assets.get("player"), this.x - this.recoil * 5, this.y, this.w, this.h);
+    const drawX = this.x - this.recoil * 5;
+    ctx.drawImage(assets.get("player"), drawX, this.y, this.w, this.h);
+    const colors = coreLevelColors(coreLevel);
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = colors.shirt;
+    ctx.beginPath();
+    ctx.moveTo(drawX + 18, this.y + 33);
+    ctx.bezierCurveTo(drawX + 24, this.y + 28, drawX + 35, this.y + 27, drawX + 41, this.y + 33);
+    ctx.lineTo(drawX + 39, this.y + 58);
+    ctx.lineTo(drawX + 22, this.y + 58);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
     ctx.globalAlpha = 1;
     if (DEBUG) drawRect(ctx, this.hitbox(), "#ff00ff");
   }
 }
 
 class Bullet {
-  constructor(x, y, vx, vy, type, damage, pierce) {
+  constructor(x, y, vx, vy, type, damage, pierce, colors) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -263,6 +291,7 @@ class Bullet {
     this.radius = type === "rocket" ? 8 : 4;
     this.dead = false;
     this.hitIds = new Set();
+    this.colors = colors;
   }
 
   update(dt) {
@@ -273,10 +302,11 @@ class Bullet {
 
   draw(ctx) {
     ctx.save();
-    ctx.fillStyle = this.type === "rocket" ? "#f97316" : this.type === "drone" ? "#9af6ff" : "#fff4a3";
-    ctx.strokeStyle = this.type === "rocket" ? "#19323c" : "#d9731f";
+    const fill = this.colors?.shot || (this.type === "rocket" ? "#f97316" : this.type === "drone" ? "#9af6ff" : "#fff4a3");
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = this.colors?.stroke || (this.type === "rocket" ? "#19323c" : "#d9731f");
     ctx.lineWidth = 2;
-    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowColor = this.colors?.glow || fill;
     ctx.shadowBlur = this.type === "rocket" ? 12 : 8;
     if (this.type === "rocket") {
       ctx.beginPath();
@@ -785,7 +815,7 @@ class Game {
       if (this.droneFireTimer <= 0) {
         this.droneFireTimer = clamp(0.34 - this.upgradeLevel * 0.012, 0.24, 0.34);
         const barrel = this.player.barrel();
-        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1));
+        this.bullets.push(new Bullet(barrel.x - 18, barrel.y - 34, 720 + this.upgradeLevel * 18, 0, "drone", this.projectileDamage("drone"), 1, coreLevelColors(this.upgradeLevel)));
         this.audio.beep("shoot");
       }
     }
@@ -811,7 +841,8 @@ class Game {
 
   fireBullet(vy = 0, type = "normal", damage = 1, pierce = 1, speed = 760) {
     const barrel = this.player.barrel();
-    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce));
+    const colors = type === "rocket" ? null : coreLevelColors(this.upgradeLevel);
+    this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.upgradeLevel * 24, vy, type, damage, pierce, colors));
     this.player.recoil = 1;
     this.audio.beep("shoot");
   }
@@ -1073,7 +1104,7 @@ class Game {
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);
     if (this.boss) this.boss.draw(ctx, this.assets);
     this.enemies.forEach((e) => e.draw(ctx, this.assets));
-    this.player.draw(ctx, this.assets);
+    this.player.draw(ctx, this.assets, this.upgradeLevel);
     if (this.activeWeapon === "drone") this.drawDrone(ctx);
     this.particles.forEach((p) => p.draw(ctx));
     this.drawUI(ctx);

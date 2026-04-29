@@ -21,11 +21,11 @@ const uniqueShirts = new Set(CORE_LEVEL_COLORS.map((level) => level.shirt));
 const uniqueShots = new Set(CORE_LEVEL_COLORS.map((level) => level.shot));
 
 if (CORE_LEVEL_COLORS.length !== 10) {
-  throw new Error("Core visuals should define one palette entry for levels 1 through 10.");
+  throw new Error("Level visuals should define one palette entry for levels 1 through 10.");
 }
 
 if (uniqueShirts.size !== CORE_LEVEL_COLORS.length || uniqueShots.size !== CORE_LEVEL_COLORS.length) {
-  throw new Error("Every Blaster Core level needs distinct shirt and shot colors.");
+  throw new Error("Every level needs distinct shirt and shot colors.");
 }
 
 if (!/player\.draw\(ctx, this\.assets, this\.upgradeLevel(?:,|\))/.test(source)) {
@@ -52,4 +52,4 @@ if (!/ctx\.textBaseline = "middle";[\s\S]*Giant Beetle Boss[\s\S]*labelW/.test(s
   throw new Error("Boss bar label should be vertically centered and separated from the health meter.");
 }
 
-console.log("Core visual progression check passed.");
+console.log("Level visual progression check passed.");

@@ -8,6 +8,7 @@ const GRAVITY = 1900;
 const SHOOT_LANE_Y = GROUND_Y - 36;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
+const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
@@ -264,14 +265,9 @@ class Player {
     ctx.drawImage(assets.get("player"), drawX, this.y, this.w, this.h);
     const colors = coreLevelColors(coreLevel);
     ctx.save();
-    ctx.globalCompositeOperation = "multiply";
+    ctx.globalCompositeOperation = "source-atop";
     ctx.fillStyle = colors.shirt;
-    ctx.beginPath();
-    ctx.moveTo(drawX + 18, this.y + 33);
-    ctx.bezierCurveTo(drawX + 24, this.y + 28, drawX + 35, this.y + 27, drawX + 41, this.y + 33);
-    ctx.lineTo(drawX + 39, this.y + 58);
-    ctx.lineTo(drawX + 22, this.y + 58);
-    ctx.closePath();
+    tracePlayerShirt(ctx, drawX, this.y, this.w, this.h);
     ctx.fill();
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -559,6 +555,7 @@ class Game {
     this.audio = new AudioManager();
     this.player = new Player();
     this.leaderboard = loadLeaderboard();
+    this.personalScores = loadPersonalScores();
     this.pendingEntry = null;
     this.initials = "";
     this.layers = [
@@ -1075,6 +1072,9 @@ class Game {
     const finalScore = Math.floor(this.score);
     this.highScore = Math.max(this.highScore, finalScore);
     localStorage.setItem(STORAGE_KEY, String(this.highScore));
+    if (finalScore > 0) {
+      this.personalScores = savePersonalScore([...this.personalScores, { score: finalScore, elapsed: this.elapsed }]);
+    }
     this.audio.beep("over");
     if (qualifiesForLeaderboard(this.leaderboard, finalScore)) {
       this.pendingEntry = { score: finalScore };
@@ -1230,28 +1230,34 @@ class Game {
   }
 
   drawBossBar(ctx) {
-    const x = 276;
-    const y = 78;
-    const w = 456;
+    const x = 252;
+    const y = 72;
+    const w = 506;
+    const h = 34;
+    const labelW = 174;
     ctx.fillStyle = "rgba(16,24,32,0.72)";
-    roundRect(ctx, x, y, w, 28, 5);
+    roundRect(ctx, x, y, w, h, 5);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
     ctx.font = "900 13px ui-rounded, system-ui";
-    ctx.fillText(this.boss.kind === "beetle" ? "Giant Beetle Boss" : "Wasp Queen Boss", x + 12, y + 7);
+    ctx.fillText(this.boss.kind === "beetle" ? "Giant Beetle Boss" : "Wasp Queen Boss", x + 12, y + h / 2);
+    ctx.fillStyle = "rgba(8,14,28,0.6)";
+    ctx.fillRect(x + labelW, y + 9, w - labelW - 14, 16);
     ctx.fillStyle = "#ff5f57";
-    ctx.fillRect(x + 160, y + 9, (w - 176) * (this.boss.health / this.boss.maxHealth), 10);
+    ctx.fillRect(x + labelW + 2, y + 11, (w - labelW - 18) * (this.boss.health / this.boss.maxHealth), 12);
     ctx.strokeStyle = "rgba(255,255,255,0.7)";
-    ctx.strokeRect(x + 160, y + 9, w - 176, 10);
+    ctx.strokeRect(x + labelW, y + 9, w - labelW - 14, 16);
+    ctx.textBaseline = "alphabetic";
   }
 
   drawStartOverlay(ctx) {
     ctx.save();
     ctx.fillStyle = "rgba(18, 32, 38, 0.64)";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    this.drawLeaderboardPanel(ctx, 226, 34, 508, 302, {
+    this.drawLeaderboardPanel(ctx, 90, 34, 780, 302, {
       title: "BUG BLASTER",
-      subtitle: "TOP 10 SCORES",
+      subtitle: "GLOBAL TOP 10  /  YOUR BEST 10",
       prompt: "PRESS ENTER OR TAP TO START"
     });
     ctx.restore();
@@ -1261,7 +1267,7 @@ class Game {
     ctx.save();
     ctx.fillStyle = "rgba(18, 32, 38, 0.68)";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    this.drawLeaderboardPanel(ctx, 202, 18, 556, 326, {
+    this.drawLeaderboardPanel(ctx, 90, 18, 780, 326, {
       title: this.pendingEntry ? "NEW HIGH SCORE" : "GAME OVER",
       subtitle: `FINAL ${Math.floor(this.score)}  HIGH ${this.highScore}`,
       prompt: this.pendingEntry ? "TYPE 3 LETTERS BELOW  TAP SAVE" : "PRESS ENTER OR TAP TO RESTART",
@@ -1313,12 +1319,18 @@ class Game {
     drawGlowText(ctx, options.subtitle, x + w / 2, y + 66, "#dfeeff", "#80bdff");
 
     const rows = this.leaderboard.slice(0, LEADERBOARD_LIMIT);
+    const personalRows = this.personalScores.slice(0, LEADERBOARD_LIMIT);
     while (rows.length < LEADERBOARD_LIMIT) rows.push({ initials: "---", score: 0 });
+    while (personalRows.length < LEADERBOARD_LIMIT) personalRows.push({ score: 0, elapsed: 0 });
     ctx.textAlign = "left";
-    ctx.font = "800 17px 'Courier New', monospace";
+    ctx.font = "900 13px 'Courier New', monospace";
+    drawGlowText(ctx, "GLOBAL", x + 66, y + 88, "#dfeeff", "#66d7ff");
+    drawGlowText(ctx, "YOU", x + w - 294, y + 88, "#dfeeff", "#66d7ff");
+    ctx.font = "800 16px 'Courier New', monospace";
     for (let i = 0; i < LEADERBOARD_LIMIT; i++) {
       const row = rows[i];
-      const rowY = y + 90 + i * 16;
+      const personalRow = personalRows[i];
+      const rowY = y + 106 + i * 14;
       const hue = i === 0 ? ["#ff6548", "#ffe866"] : i < 3 ? ["#7cff9a", "#cfff6e"] : ["#5bc7ff", "#87a8ff"];
       ctx.fillStyle = hue[0];
       ctx.shadowColor = hue[0];
@@ -1327,7 +1339,15 @@ class Game {
       ctx.textAlign = "right";
       ctx.fillStyle = hue[1];
       ctx.shadowColor = hue[1];
-      ctx.fillText(row.score ? String(row.score).padStart(5, " ") : "-----", x + w - 54, rowY);
+      ctx.fillText(row.score ? String(row.score).padStart(5, " ") : "-----", x + 330, rowY);
+      ctx.textAlign = "left";
+      ctx.fillStyle = hue[0];
+      ctx.shadowColor = hue[0];
+      ctx.fillText(ordinal(i + 1), x + w - 330, rowY);
+      ctx.textAlign = "right";
+      ctx.fillStyle = hue[1];
+      ctx.shadowColor = hue[1];
+      ctx.fillText(personalRow.score ? String(personalRow.score).padStart(5, " ") : "-----", x + w - 54, rowY);
       ctx.textAlign = "left";
     }
 
@@ -1371,6 +1391,32 @@ function normalizeScores(rows) {
       score: Math.max(0, Math.floor(Number(row.score)))
     }))
     .sort((a, b) => b.score - a.score)
+    .slice(0, LEADERBOARD_LIMIT);
+}
+
+function loadPersonalScores() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(PERSONAL_SCORES_KEY) || "[]");
+    return normalizePersonalScores(rows);
+  } catch {
+    return [];
+  }
+}
+
+function savePersonalScore(rows) {
+  const normalized = normalizePersonalScores(rows);
+  localStorage.setItem(PERSONAL_SCORES_KEY, JSON.stringify(normalized));
+  return normalized;
+}
+
+function normalizePersonalScores(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .filter((row) => row && Number.isFinite(Number(row.score)))
+    .map((row) => ({
+      score: Math.max(0, Math.floor(Number(row.score))),
+      elapsed: Math.max(0, Number(row.elapsed) || 0)
+    }))
+    .sort((a, b) => b.score - a.score || b.elapsed - a.elapsed)
     .slice(0, LEADERBOARD_LIMIT);
 }
 
@@ -1432,6 +1478,17 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function tracePlayerShirt(ctx, x, y, w, h) {
+  const sx = w / 96;
+  const sy = h / 96;
+  ctx.beginPath();
+  ctx.moveTo(x + 31 * sx, y + 44 * sy);
+  ctx.bezierCurveTo(x + 40 * sx, y + 37 * sy, x + 56 * sx, y + 36 * sy, x + 65 * sx, y + 44 * sy);
+  ctx.lineTo(x + 62 * sx, y + 78 * sy);
+  ctx.lineTo(x + 34 * sx, y + 78 * sy);
   ctx.closePath();
 }
 

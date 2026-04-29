@@ -48,6 +48,8 @@ Bosses appear periodically, show health bars, scale health over time, and can dr
 
 The start and game-over overlays include an arcade score dashboard. Scores sync through `/api/scores` when available and fall back to `localStorage` if the backend cannot be reached. A successful empty backend response clears the in-browser fallback leaderboard. Qualifying game-over scores prompt the player to type three initials and press `Enter`, or use the on-screen name field and Save button on phone.
 
+The same dashboard also shows the player's personal best 10 performances from this browser. Personal performances are stored only in `localStorage` and are not synced to the backend.
+
 ## Power-Ups
 
 - Rapid Fire: much faster fire rate

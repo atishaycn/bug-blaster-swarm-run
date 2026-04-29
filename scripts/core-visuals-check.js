@@ -36,4 +36,12 @@ if (!/coreLevelColors\(this\.upgradeLevel\)/.test(source)) {
   throw new Error("Bullets must use the current upgrade-level color palette.");
 }
 
+if (!/tracePlayerShirt\(ctx, drawX, this\.y, this\.w, this\.h\)/.test(source)) {
+  throw new Error("Player shirt tint must use the exact shirt path instead of a shifted overlay.");
+}
+
+if (!/ctx\.textBaseline = "middle";[\s\S]*Giant Beetle Boss[\s\S]*labelW/.test(source)) {
+  throw new Error("Boss bar label should be vertically centered and separated from the health meter.");
+}
+
 console.log("Core visual progression check passed.");

@@ -52,7 +52,7 @@ const PICKUPS = {
   ...WEAPONS,
   health: { name: "Health", label: "+", color: "#47c26b", asset: "healthPower" },
   maxHealth: { name: "Max Health", label: "H", color: "#22c55e", asset: "maxHealthPower" },
-  upgrade: { name: "Blaster Core", label: "U", color: "#ffd166", asset: "upgradePower" }
+  upgrade: { name: "Level Up", label: "L", color: "#ffd166", asset: "upgradePower" }
 };
 
 const MAX_UPGRADE_LEVEL = 10;
@@ -1288,7 +1288,7 @@ class Game {
       ctx.fill();
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 13px Avenir, sans-serif";
-      ctx.fillText(`Core ${this.upgradeLevel}/${MAX_UPGRADE_LEVEL}`, WIDTH - 142, 80);
+      ctx.fillText(`Level ${this.upgradeLevel}/${MAX_UPGRADE_LEVEL}`, WIDTH - 142, 80);
     }
     if (this.audio.muted) {
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";

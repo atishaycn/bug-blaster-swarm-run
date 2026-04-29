@@ -513,7 +513,7 @@ class Game {
     this.score = 0;
     this.elapsed = 0;
     this.worldSpeed = 230;
-    this.spawnTimer = 1.1;
+    this.spawnTimer = 0.55;
     this.powerTimer = 7;
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
@@ -718,7 +718,7 @@ class Game {
   updateSpawns(dt) {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
-      this.spawnTimer = clamp(1.25 - this.elapsed * 0.006, 0.34, 1.25);
+      this.spawnTimer = clamp(0.95 - this.elapsed * 0.0055, 0.28, 0.95);
       this.spawnFormation();
     }
     this.powerTimer -= dt;
@@ -734,10 +734,10 @@ class Game {
   spawnFormation() {
     const stage = this.elapsed;
     const options = ["single"];
-    if (stage > 16) options.push("groundPair", "flyingPair");
-    if (stage > 32) options.push("mixed", "fastLine");
-    if (stage > 55) options.push("tankEscort", "zigzagMix");
-    if (stage > 90) options.push("miniSwarm", "mixed", "tankEscort");
+    if (stage > 6) options.push("groundPair", "flyingPair");
+    if (stage > 18) options.push("mixed", "fastLine");
+    if (stage > 42) options.push("tankEscort", "zigzagMix");
+    if (stage > 75) options.push("miniSwarm", "mixed", "tankEscort");
     const pick = options[Math.floor(Math.random() * options.length)];
     const x = WIDTH + rand(10, 42);
     if (pick === "groundPair") {

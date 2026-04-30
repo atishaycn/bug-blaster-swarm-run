@@ -962,7 +962,7 @@ class Game {
     const targets = [...this.enemies];
     if (this.boss) targets.push(this.boss);
     targets.forEach((target) => {
-      if (this.canDamageTarget(target) && rectsOverlap(beam, target.hitbox())) {
+      if (this.canLaserDamageTarget(target, beam)) {
         target.damage(1);
         this.spawnHit(target.x + target.w * 0.45, target.y + target.h * 0.5, "#f43f5e");
       }
@@ -1037,6 +1037,12 @@ class Game {
     return target.x + target.w * 0.5 < WIDTH - 8;
   }
 
+  canLaserDamageTarget(target, beam) {
+    const hitbox = target.hitbox();
+    const visible = hitbox.x < WIDTH && hitbox.x + hitbox.w > 0;
+    return visible && rectsOverlap(beam, hitbox);
+  }
+
   collectWeapon(type) {
     if (this.activeWeapon) {
       this.weaponQueue.push(type);
@@ -1051,7 +1057,7 @@ class Game {
     this.weaponDuration = this.weaponDurationFor(type);
     this.weaponTimer = this.weaponDuration;
     if (type === "drone") this.droneFireTimer = 0.3;
-    if (type === "laser") this.laserTick = 0;
+    if (type === "laser") this.fireTimer = 0;
   }
 
   activateNextQueuedWeapon() {

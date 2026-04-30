@@ -697,6 +697,8 @@ class Game {
     this.onboardingButton = document.getElementById("onboardingButton");
     this.lootboxPanel = document.getElementById("lootboxPanel");
     this.lootboxOptions = document.getElementById("lootboxOptions");
+    this.lootboxToast = document.getElementById("lootboxToast");
+    this.lootboxToastTimer = 0;
     this.onboardingVisible = localStorage.getItem(ONBOARDING_KEY) !== "true";
     this.initialsPanelVisible = false;
     this.lootboxPanelVisible = false;
@@ -1057,7 +1059,7 @@ class Game {
         button.type = "button";
         button.className = "lootbox-option";
         button.dataset.lootIndex = String(index);
-        button.innerHTML = `<strong>${escapeHtml(choice.categoryLabel)}</strong><span>Reward hidden until opened. 5% cursed chance.</span>`;
+        button.innerHTML = `<strong>${escapeHtml(choice.categoryLabel)}</strong><span>${escapeHtml(lootboxChoiceDescription(choice.category))}</span>`;
         return button;
       }));
       window.setTimeout(() => this.lootboxOptions.querySelector("button")?.focus({ preventScroll: true }), 0);
@@ -1082,8 +1084,22 @@ class Game {
       this.audio.beep("grave");
       for (let i = 0; i < 24; i++) this.spawnParticle(this.player.x + 32, this.player.y + 28, "#b6ff72", rand(2, 6), rand(-220, 220), rand(-260, -30), 0.72);
     }
+    this.showLootboxToast(choice, cursed);
     this.updateButtons();
     this.checkLevelProgress();
+  }
+
+  showLootboxToast(choice, cursed) {
+    if (!this.lootboxToast) return;
+    window.clearTimeout(this.lootboxToastTimer);
+    const curseText = cursed ? " Cursed: UI grew by 10%." : "";
+    this.lootboxToast.textContent = `Unlocked ${choice.categoryLabel}: ${choice.name}. ${choice.note}${curseText}`;
+    this.lootboxToast.classList.add("is-visible");
+    this.lootboxToast.setAttribute("aria-hidden", "false");
+    this.lootboxToastTimer = window.setTimeout(() => {
+      this.lootboxToast.classList.remove("is-visible");
+      this.lootboxToast.setAttribute("aria-hidden", "true");
+    }, 2000);
   }
 
   async syncScores() {
@@ -2035,6 +2051,12 @@ function formatReward(reward) {
     color: item.accent || item.shot || "#ffd166",
     categoryLabel: reward.category === "outfits" ? "Outfit" : reward.category === "bullets" ? "Bullet type" : "Acrobatics"
   };
+}
+
+function lootboxChoiceDescription(category) {
+  if (category === "outfits") return "Unlocks a new runner look. Exact outfit stays hidden until opened. 5% cursed chance.";
+  if (category === "bullets") return "Unlocks a new shot style for your blaster. Exact type stays hidden until opened. 5% cursed chance.";
+  return "Unlocks a new jump move. Exact trick stays hidden until opened. 5% cursed chance.";
 }
 
 function unlockAdvancedReward(progress, reward) {

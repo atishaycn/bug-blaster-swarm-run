@@ -16,6 +16,8 @@ const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
 const MONSTER_MASH_WINDOW = 10;
 const MONSTER_MASH_TRIGGER_COUNT = 30;
+const CURSED_LOOTBOX_CHANCE = 0.05;
+const CURSED_UI_SCALE_STEP = 0.1;
 const ASSET_PATHS = {
   player: "assets/player.svg",
   groundCrawler: "assets/ground-crawler.svg",
@@ -702,6 +704,7 @@ class Game {
     this.audio = new AudioManager();
     this.player = new Player();
     this.advancedProgress = loadAdvancedProgress();
+    this.applyAdvancedUiScale();
     this.leaderboard = loadLeaderboard();
     this.personalScores = loadPersonalScores();
     this.pendingEntry = null;
@@ -987,6 +990,14 @@ class Game {
     return this.advancedProgress.equipped.bullet || "spark";
   }
 
+  currentUiScale() {
+    return clamp(Number(this.advancedProgress.curse?.uiScale) || 1, 1, 4);
+  }
+
+  applyAdvancedUiScale() {
+    document.documentElement.style.setProperty("--advanced-ui-scale", this.currentUiScale().toFixed(3));
+  }
+
   registerMonsterMashPress() {
     const now = performance.now() / 1000;
     this.monsterMashPresses = this.monsterMashPresses.filter((time) => now - time <= MONSTER_MASH_WINDOW);
@@ -1011,6 +1022,7 @@ class Game {
     this.personalScores = [];
     this.highScore = 0;
     this.advancedProgress = defaultAdvancedProgress();
+    this.applyAdvancedUiScale();
     this.pendingEntry = null;
     this.initials = "";
     this.reset();
@@ -1045,7 +1057,7 @@ class Game {
         button.type = "button";
         button.className = "lootbox-option";
         button.dataset.lootIndex = String(index);
-        button.innerHTML = `<strong>${escapeHtml(choice.name)}</strong><span>${escapeHtml(choice.categoryLabel)} - ${escapeHtml(choice.note)}</span>`;
+        button.innerHTML = `<strong>${escapeHtml(choice.categoryLabel)}</strong><span>Reward hidden until opened. 5% cursed chance.</span>`;
         return button;
       }));
       window.setTimeout(() => this.lootboxOptions.querySelector("button")?.focus({ preventScroll: true }), 0);
@@ -1057,13 +1069,19 @@ class Game {
     const choice = this.lootboxChoices[index];
     if (!choice) return;
     unlockAdvancedReward(this.advancedProgress, choice);
+    const cursed = rollCursedLootbox(this.advancedProgress);
     saveAdvancedProgress(this.advancedProgress);
+    this.applyAdvancedUiScale();
     this.playerLevel = Math.max(this.playerLevel, this.pendingLevel);
     this.pendingLevel = 0;
     this.lootboxChoices = [];
     this.state = "playing";
     this.audio.beep("power");
     for (let i = 0; i < 18; i++) this.spawnParticle(this.player.x + 32, this.player.y + 28, choice.color, rand(2, 6), rand(-180, 180), rand(-230, -40), 0.58);
+    if (cursed) {
+      this.audio.beep("grave");
+      for (let i = 0; i < 24; i++) this.spawnParticle(this.player.x + 32, this.player.y + 28, "#b6ff72", rand(2, 6), rand(-220, 220), rand(-260, -30), 0.72);
+    }
     this.updateButtons();
     this.checkLevelProgress();
   }
@@ -1638,6 +1656,7 @@ class Game {
     const score = Math.floor(this.score);
     this.highScore = Math.max(this.highScore, score);
     ctx.save();
+    ctx.scale(this.currentUiScale(), this.currentUiScale());
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "rgba(255, 250, 240, 0.9)";
     roundRect(ctx, 16, 14, 328, 56, 8);
@@ -1932,6 +1951,9 @@ function defaultAdvancedProgress() {
       outfit: "classic",
       bullet: "spark",
       acrobatics: "classic"
+    },
+    curse: {
+      uiScale: 1
     }
   };
 }
@@ -1959,7 +1981,10 @@ function normalizeAdvancedProgress(progress) {
     bullet: unlocked.bullets.includes(progress.equipped?.bullet) ? progress.equipped.bullet : defaults.equipped.bullet,
     acrobatics: unlocked.acrobatics.includes(progress.equipped?.acrobatics) ? progress.equipped.acrobatics : defaults.equipped.acrobatics
   };
-  return { unlocked, equipped };
+  const curse = {
+    uiScale: clamp(Number(progress.curse?.uiScale) || defaults.curse.uiScale, 1, 4)
+  };
+  return { unlocked, equipped, curse };
 }
 
 function uniqueValid(values, catalog) {
@@ -1968,6 +1993,16 @@ function uniqueValid(values, catalog) {
 
 function saveAdvancedProgress(progress) {
   localStorage.setItem(ADVANCED_PROGRESS_KEY, JSON.stringify(normalizeAdvancedProgress(progress)));
+}
+
+function rollCursedLootbox(progress) {
+  if (Math.random() >= CURSED_LOOTBOX_CHANCE) return false;
+  const current = Number(progress.curse?.uiScale) || 1;
+  progress.curse = {
+    ...(progress.curse || {}),
+    uiScale: clamp(current * (1 + CURSED_UI_SCALE_STEP), 1, 4)
+  };
+  return true;
 }
 
 function buildLootboxChoices(progress, level) {

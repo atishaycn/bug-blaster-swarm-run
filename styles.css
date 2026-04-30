@@ -7,6 +7,7 @@
   --accent: #ff6b35;
   --accent-dark: #b23a1f;
   --mint: #5fc8a6;
+  --advanced-ui-scale: 1;
 }
 
 * {
@@ -87,6 +88,30 @@ button {
 
 button:hover {
   background: #254957;
+}
+
+.topbar button,
+.restart-button,
+.initials-panel,
+.onboarding-card,
+.lootbox-card,
+.control-strip {
+  transform: scale(var(--advanced-ui-scale));
+}
+
+.topbar button,
+.restart-button {
+  transform-origin: right center;
+}
+
+.initials-panel,
+.onboarding-card,
+.lootbox-card {
+  transform-origin: center;
+}
+
+.control-strip {
+  transform-origin: left top;
 }
 
 .canvas-wrap {

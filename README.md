@@ -33,7 +33,7 @@ There are no hurdles, rocks, logs, spike mounds, or non-enemy obstacles. The cha
 
 ## Advanced Version
 
-The `advanced-version` branch adds a parallel progression layer. Score acts as experience: level 1 starts at 500 points, level 2 at 1,000, level 3 at 2,000, then each next level doubles the required score. When a run crosses a level threshold, gameplay pauses and the player picks one of three lootboxes.
+The `advanced-version` branch adds a parallel progression layer. Score acts as experience: level 1 starts at 500 points, level 2 at 1,000, level 3 at 2,000, then each next level doubles the required score. When a run crosses a level threshold, gameplay pauses and the player picks one of three lootboxes. Lootboxes show only their reward category before opening, not the exact reward.
 
 Lootboxes unlock and equip customization rewards across three categories:
 
@@ -42,6 +42,8 @@ Lootboxes unlock and equip customization rewards across three categories:
 - Acrobatics: changes jump style, including backflips and a two-second hold-to-hover move.
 
 Advanced unlocks persist locally under `bugBlasterAdvancedProgress`. After the first Giant Beetle Boss is defeated, the run briefly fakes out a death scene: the runner falls into an open grave, night falls, and the game continues in a graveyard theme with zombie-styled enemies. As an audio easter egg, pressing `M` 30 times within 10 seconds plays a generated MIDI-like monster mash riff. On the high-score initials screen, entering `SAI` wipes local progress, high score, local leaderboard, personal bests, onboarding state, and advanced unlocks.
+
+Every opened lootbox also has a 5% cursed chance to permanently enlarge the game's UI by another 10% in this browser.
 
 ## Enemy Types
 

@@ -1610,13 +1610,10 @@ function ordinal(rank) {
   return `${rank}TH`;
 }
 
-function powerToastMessage(type, result) {
+function powerToastMessage(type) {
   const pickup = PICKUPS[type];
   if (!pickup) return "Power collected.";
-  if (type === "health" || type === "maxHealth" || type === "upgrade") return `${pickup.name}: ${result}`;
-  const duration = Math.round((WEAPONS[type]?.duration || 0) * 10) / 10;
-  const state = result === "queued" ? "queued for after your current weapon" : `equipped for about ${duration}s`;
-  return `${pickup.name}: ${state}.`;
+  return pickup.name;
 }
 
 function roundRect(ctx, x, y, w, h, r) {

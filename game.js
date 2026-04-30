@@ -8,6 +8,7 @@ const GRAVITY = 1900;
 const SHOOT_LANE_Y = GROUND_Y - 36;
 const PLAYER_HIT_DAMAGE = 0.5;
 const PLAYER_HIT_INVINCIBILITY = 2.2;
+const LEVEL_MAX_HEALTH_GAIN = 0.5;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
@@ -270,6 +271,11 @@ class Player {
     this.health = Math.max(0, this.health - amount);
     this.invincible = PLAYER_HIT_INVINCIBILITY;
     return true;
+  }
+
+  increaseMaxHealth(amount) {
+    this.maxHealth += amount;
+    this.health = Math.min(this.maxHealth, this.health + amount);
   }
 
   bounceFromStomp() {
@@ -1101,13 +1107,14 @@ class Game {
           pickupResult = `Restored ${restore} heart${restore === 1 ? "" : "s"}.`;
         } else if (power.type === "maxHealth") {
           const boost = this.powerBonusLevel() >= 8 ? 2 : 1;
-          this.player.maxHealth += boost;
+          this.player.increaseMaxHealth(boost);
           this.player.health = this.player.maxHealth;
           pickupResult = `Max health +${boost}. Hearts refilled.`;
         } else if (power.type === "upgrade") {
           this.upgradeLevel += 1;
           this.player.setPowerScale(this.upgradeLevel);
-          pickupResult = `Core blaster level ${this.upgradeLevel}.`;
+          this.player.increaseMaxHealth(LEVEL_MAX_HEALTH_GAIN);
+          pickupResult = `Core blaster level ${this.upgradeLevel}. Max health up.`;
         } else {
           pickupResult = this.collectWeapon(power.type);
         }
@@ -1328,7 +1335,7 @@ class Game {
     ctx.fillStyle = "#19323c";
     ctx.font = "800 18px Avenir, sans-serif";
     const healthRatio = clamp(this.player.health / this.player.maxHealth, 0, 1);
-    ctx.fillText(`Health ${this.player.health.toFixed(1)}/${this.player.maxHealth}`, 30, 38);
+    ctx.fillText(`Health ${Math.round(healthRatio * 100)}%`, 30, 38);
     ctx.fillStyle = "rgba(25, 50, 60, 0.18)";
     roundRect(ctx, 180, 26, 132, 10, 5);
     ctx.fill();

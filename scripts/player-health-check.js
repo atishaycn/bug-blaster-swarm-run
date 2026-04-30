@@ -14,7 +14,7 @@ if (!constantsSource) {
 
 const sandbox = {};
 vm.createContext(sandbox);
-vm.runInContext(`${constantsSource}\nthis.PLAYER_HIT_DAMAGE = PLAYER_HIT_DAMAGE;\nthis.PLAYER_HIT_INVINCIBILITY = PLAYER_HIT_INVINCIBILITY;`, sandbox);
+vm.runInContext(`${constantsSource}\nthis.PLAYER_HIT_DAMAGE = PLAYER_HIT_DAMAGE;\nthis.PLAYER_HIT_INVINCIBILITY = PLAYER_HIT_INVINCIBILITY;\nthis.LEVEL_MAX_HEALTH_GAIN = LEVEL_MAX_HEALTH_GAIN;`, sandbox);
 
 if (sandbox.PLAYER_HIT_DAMAGE >= 1) {
   throw new Error("Player hits should drain health progressively, not remove a full heart at once.");
@@ -22,6 +22,10 @@ if (sandbox.PLAYER_HIT_DAMAGE >= 1) {
 
 if (sandbox.PLAYER_HIT_INVINCIBILITY < 2) {
   throw new Error("Player needs at least two seconds of post-hit invulnerability.");
+}
+
+if (sandbox.LEVEL_MAX_HEALTH_GAIN <= 0) {
+  throw new Error("Level upgrades should increase max health.");
 }
 
 if (!/this\.health = Math\.max\(0, this\.health - amount\)/.test(source)) {
@@ -34,6 +38,14 @@ if (!/this\.invincible = PLAYER_HIT_INVINCIBILITY/.test(source)) {
 
 if (!/healthRatio = clamp\(this\.player\.health \/ this\.player\.maxHealth/.test(source)) {
   throw new Error("Health UI should render proportional health progress.");
+}
+
+if (!/Health \$\{Math\.round\(healthRatio \* 100\)\}%/.test(source)) {
+  throw new Error("Health UI should show a percentage.");
+}
+
+if (!/this\.player\.increaseMaxHealth\(LEVEL_MAX_HEALTH_GAIN\)/.test(source)) {
+  throw new Error("Level Up pickups should increase max health.");
 }
 
 if (/\"♥\"\.repeat/.test(source) || /\"♡\"\.repeat/.test(source)) {

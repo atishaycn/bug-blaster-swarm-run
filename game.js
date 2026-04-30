@@ -6,6 +6,8 @@ const HEIGHT = 360;
 const GROUND_Y = 304;
 const GRAVITY = 1900;
 const SHOOT_LANE_Y = GROUND_Y - 36;
+const PLAYER_HIT_DAMAGE = 0.5;
+const PLAYER_HIT_INVINCIBILITY = 2.2;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
@@ -263,10 +265,10 @@ class Player {
     this.recoil = Math.max(0, this.recoil - dt * 6);
   }
 
-  damage() {
+  damage(amount = PLAYER_HIT_DAMAGE) {
     if (this.invincible > 0) return false;
-    this.health -= 1;
-    this.invincible = 1.15;
+    this.health = Math.max(0, this.health - amount);
+    this.invincible = PLAYER_HIT_INVINCIBILITY;
     return true;
   }
 
@@ -1325,9 +1327,14 @@ class Game {
     ctx.fill();
     ctx.fillStyle = "#19323c";
     ctx.font = "800 18px Avenir, sans-serif";
-    const fullHearts = "♥".repeat(Math.max(0, this.player.health));
-    const emptyHearts = "♡".repeat(Math.max(0, this.player.maxHealth - Math.max(0, this.player.health)));
-    ctx.fillText(`Health ${fullHearts}${emptyHearts}`, 30, 38);
+    const healthRatio = clamp(this.player.health / this.player.maxHealth, 0, 1);
+    ctx.fillText(`Health ${this.player.health.toFixed(1)}/${this.player.maxHealth}`, 30, 38);
+    ctx.fillStyle = "rgba(25, 50, 60, 0.18)";
+    roundRect(ctx, 180, 26, 132, 10, 5);
+    ctx.fill();
+    ctx.fillStyle = healthRatio > 0.35 ? "#47c26b" : "#ff5f57";
+    roundRect(ctx, 180, 26, 132 * healthRatio, 10, 5);
+    ctx.fill();
     ctx.font = "800 16px Avenir, sans-serif";
     ctx.fillText(`Score ${score}   High ${this.highScore}`, 30, 60);
     if (this.activeWeapon) {

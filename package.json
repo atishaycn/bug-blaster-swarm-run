@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "node --check game.js && node --check api/scores.js && node scripts/rocket-balance-check.js && node scripts/core-visuals-check.js && node scripts/laser-hit-check.js"
+    "check": "node --check game.js && node --check api/scores.js && node scripts/rocket-balance-check.js && node scripts/core-visuals-check.js && node scripts/laser-hit-check.js && node scripts/player-health-check.js"
   },
   "engines": {
     "node": "22.x"

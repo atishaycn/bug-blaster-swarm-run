@@ -622,6 +622,7 @@ class Game {
     this.spawnTimer = 0.55;
     this.powerTimer = 7;
     this.upgradeTimer = 28;
+    this.upgradeTimerMax = this.upgradeTimer;
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
     this.laserTick = 0;
@@ -982,7 +983,8 @@ class Game {
     }
     this.upgradeTimer -= dt;
     if (this.upgradeTimer <= 0) {
-      this.upgradeTimer = rand(38, 50);
+      this.upgradeTimerMax = rand(38, 50);
+      this.upgradeTimer = this.upgradeTimerMax;
       this.spawnPowerUp("upgrade");
     }
     if (!this.boss && this.elapsed >= this.nextBossTime) {
@@ -1346,15 +1348,19 @@ class Game {
       ctx.fillText(text, WIDTH - textW, 40);
     }
     if (this.upgradeLevel) {
+      const levelProgress = clamp(1 - this.upgradeTimer / Math.max(1, this.upgradeTimerMax), 0, 1);
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
-      roundRect(ctx, WIDTH - 166, 62, 150, 26, 8);
+      roundRect(ctx, WIDTH - 182, 62, 166, 30, 8);
       ctx.fill();
-      ctx.fillStyle = "#ffd166";
-      roundRect(ctx, WIDTH - 88, 78, 66, 5, 3);
+      ctx.fillStyle = "rgba(255, 244, 216, 0.2)";
+      roundRect(ctx, WIDTH - 116, 80, 86, 6, 3);
+      ctx.fill();
+      ctx.fillStyle = coreLevelColors(this.upgradeLevel).accent;
+      roundRect(ctx, WIDTH - 116, 80, 86 * levelProgress, 6, 3);
       ctx.fill();
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 13px Avenir, sans-serif";
-      ctx.fillText(`Level ${this.upgradeLevel}`, WIDTH - 148, 80);
+      ctx.fillText(`Level ${this.upgradeLevel}`, WIDTH - 164, 80);
     }
     if (this.audio.muted) {
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";

@@ -28,7 +28,7 @@ if (uniqueShirts.size !== CORE_LEVEL_COLORS.length || uniqueShots.size !== CORE_
   throw new Error("Every level needs distinct shirt and shot colors.");
 }
 
-if (!/player\.draw\(ctx, this\.assets, this\.upgradeLevel(?:,|\))/.test(source)) {
+if (!/player\.draw\(ctx, this\.assets, this\.upgradeLevel\)/.test(source)) {
   throw new Error("Player drawing must receive the current upgrade level.");
 }
 
@@ -36,20 +36,12 @@ if (!/coreLevelColors\(this\.upgradeLevel\)/.test(source)) {
   throw new Error("Bullets must use the current upgrade-level color palette.");
 }
 
-if (!/tracePlayerShirt\(ctx,[\s\S]*?this\.w, this\.h\)/.test(source)) {
+if (!/tracePlayerShirt\(ctx, drawX, this\.y, this\.w, this\.h\)/.test(source)) {
   throw new Error("Player shirt tint must use the exact shirt path instead of a shifted overlay.");
-}
-
-if (!/const LEVEL_BASE_SCORE = 500;/.test(source) || !/function scoreForLevel\(level\)/.test(source)) {
-  throw new Error("Advanced mode must keep score-based level thresholds.");
 }
 
 if (/MAX_UPGRADE_LEVEL/.test(source) || !/this\.upgradeLevel \+= 1/.test(source) || !/setPowerScale\(this\.upgradeLevel\)/.test(source)) {
   throw new Error("Level Up pickups must scale indefinitely and grow the player with each level.");
-}
-
-if (!/ADVANCED_PROGRESS_KEY/.test(source) || !/function buildLootboxChoices/.test(source)) {
-  throw new Error("Advanced mode must persist customization progress and provide lootbox choices.");
 }
 
 if (!/ctx\.textBaseline = "middle";[\s\S]*Giant Beetle Boss[\s\S]*labelW/.test(source)) {

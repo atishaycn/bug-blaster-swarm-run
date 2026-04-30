@@ -8,7 +8,11 @@ const GRAVITY = 1900;
 const SHOOT_LANE_Y = GROUND_Y - 36;
 const PLAYER_HIT_DAMAGE = 0.5;
 const PLAYER_HIT_INVINCIBILITY = 2.2;
-const LEVEL_MAX_HEALTH_GAIN = 0.5;
+const LEVEL_MAX_HEALTH_GAIN = 0.25;
+const ENEMY_LEVEL_HEALTH_INTERVAL = 3;
+const ENEMY_TIME_HEALTH_INTERVAL = 45;
+const ENEMY_LEVEL_SPEED_GAIN = 0.012;
+const ENEMY_LEVEL_SPEED_CAP = 0.18;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
@@ -1038,11 +1042,27 @@ class Game {
 
   spawnEnemy(type, x = WIDTH + 50, y) {
     if (x < this.player.x + 260) x = this.player.x + 260;
-    this.enemies.push(new Enemy(type, x, y));
+    const enemy = new Enemy(type, x, y);
+    this.scaleEnemyForRun(enemy);
+    this.enemies.push(enemy);
+  }
+
+  scaleEnemyForRun(enemy) {
+    const levelHealth = Math.floor(this.powerBonusLevel() / ENEMY_LEVEL_HEALTH_INTERVAL);
+    const timeHealth = Math.floor(Math.max(0, this.elapsed - 60) / ENEMY_TIME_HEALTH_INTERVAL);
+    const healthBonus = Math.max(0, levelHealth + timeHealth);
+    if (healthBonus > 0) {
+      const miniPenalty = enemy.type === "mini" ? Math.floor(healthBonus / 2) : healthBonus;
+      enemy.maxHealth += miniPenalty;
+      enemy.health = enemy.maxHealth;
+      enemy.score += miniPenalty * 8;
+    }
+    const speedScale = 1 + Math.min(ENEMY_LEVEL_SPEED_CAP, this.powerBonusLevel() * ENEMY_LEVEL_SPEED_GAIN);
+    enemy.speed *= speedScale;
   }
 
   canDamageTarget(target) {
-    return target.x + target.w * 0.5 < WIDTH - 8;
+    return target.x + target.w < WIDTH - 12;
   }
 
   canLaserDamageTarget(target, beam) {

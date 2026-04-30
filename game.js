@@ -1102,6 +1102,18 @@ class Game {
     }, 2000);
   }
 
+  showPowerToast(type, result) {
+    if (!this.lootboxToast) return;
+    window.clearTimeout(this.lootboxToastTimer);
+    this.lootboxToast.textContent = powerToastMessage(type, result);
+    this.lootboxToast.classList.add("is-visible");
+    this.lootboxToast.setAttribute("aria-hidden", "false");
+    this.lootboxToastTimer = window.setTimeout(() => {
+      this.lootboxToast.classList.remove("is-visible");
+      this.lootboxToast.setAttribute("aria-hidden", "true");
+    }, 2000);
+  }
+
   async syncScores() {
     const scores = await fetchScores();
     if (scores) this.setLeaderboard(scores);
@@ -1325,9 +1337,10 @@ class Game {
   collectWeapon(type) {
     if (this.activeWeapon) {
       this.weaponQueue.push(type);
-      return;
+      return "queued";
     }
     this.activateWeapon(type);
+    return "equipped";
   }
 
   activateWeapon(type) {
@@ -1370,17 +1383,23 @@ class Game {
       if (!power.dead && rectsOverlap(playerBox, power.hitbox())) {
         power.dead = true;
         const pickup = PICKUPS[power.type];
+        let pickupResult = "";
         if (power.type === "health") {
           const restore = this.powerBonusLevel() >= 5 ? 2 : 1;
           this.player.health = Math.min(this.player.maxHealth, this.player.health + restore);
+          pickupResult = `Restored ${restore} heart${restore === 1 ? "" : "s"}.`;
         } else if (power.type === "maxHealth") {
-          this.player.maxHealth += this.powerBonusLevel() >= 8 ? 2 : 1;
+          const boost = this.powerBonusLevel() >= 8 ? 2 : 1;
+          this.player.maxHealth += boost;
           this.player.health = this.player.maxHealth;
+          pickupResult = `Max health +${boost}. Hearts refilled.`;
         } else if (power.type === "upgrade") {
           this.upgradeLevel = Math.min(MAX_UPGRADE_LEVEL, this.upgradeLevel + 1);
+          pickupResult = `Core blaster level ${this.upgradeLevel}.`;
         } else {
-          this.collectWeapon(power.type);
+          pickupResult = this.collectWeapon(power.type);
         }
+        this.showPowerToast(power.type, pickupResult);
         this.audio.beep("power");
         for (let i = 0; i < 12; i++) this.spawnParticle(power.x + 18, power.y + 18, pickup.color, rand(2, 5), rand(-150, 150), rand(-210, -50), 0.45);
       }
@@ -2057,6 +2076,15 @@ function lootboxChoiceDescription(category) {
   if (category === "outfits") return "Unlocks a new runner look. Exact outfit stays hidden until opened. 5% cursed chance.";
   if (category === "bullets") return "Unlocks a new shot style for your blaster. Exact type stays hidden until opened. 5% cursed chance.";
   return "Unlocks a new jump move. Exact trick stays hidden until opened. 5% cursed chance.";
+}
+
+function powerToastMessage(type, result) {
+  const pickup = PICKUPS[type];
+  if (!pickup) return "Power collected.";
+  if (type === "health" || type === "maxHealth" || type === "upgrade") return `${pickup.name}: ${result}`;
+  const duration = Math.round((WEAPONS[type]?.duration || 0) * 10) / 10;
+  const state = result === "queued" ? "queued for after your current weapon" : `equipped for about ${duration}s`;
+  return `${pickup.name}: ${state}.`;
 }
 
 function unlockAdvancedReward(progress, reward) {

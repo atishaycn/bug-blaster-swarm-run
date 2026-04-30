@@ -20,6 +20,7 @@ The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment vari
 - `Enter`: start or restart
 - `P`: pause or unpause
 - `M`: mute or unmute generated audio
+- Mash `M` 30 times in 10 seconds: play the hidden monster mash riff
 - Click/touch anywhere on the page: jump, start, or restart
 
 ## Gameplay
@@ -29,6 +30,20 @@ The player stays near the bottom-left, jumps with gravity, and automatically sho
 New players see a short one-time onboarding card before their first run. It explains jumping, auto-shooting, power-ups, bosses, and the leaderboard goal.
 
 There are no hurdles, rocks, logs, spike mounds, or non-enemy obstacles. The challenge comes entirely from enemy contact, swarm density, boss pressure, and weapon timing.
+
+## Advanced Version
+
+The `advanced-version` branch adds a parallel progression layer. Score acts as experience: level 1 starts at 500 points, level 2 at 1,000, level 3 at 2,000, then each next level doubles the required score. When a run crosses a level threshold, gameplay pauses and the player picks one of three lootboxes. Lootboxes show only their reward category before opening, not the exact reward.
+
+Lootboxes unlock and equip customization rewards across three categories:
+
+- Outfits: changes the player's shirt/accent style.
+- Bullet types: changes the visual shape/color of blaster rounds.
+- Acrobatics: changes jump style, including backflips and a two-second hold-to-hover move.
+
+Advanced unlocks persist locally under `bugBlasterAdvancedProgress`. After the first Giant Beetle Boss is defeated, the run briefly fakes out a death scene: the runner falls into an open grave, night falls, and the game continues in a graveyard theme with zombie-styled enemies. As an audio easter egg, pressing `M` 30 times within 10 seconds plays a generated MIDI-like monster mash riff. On the high-score initials screen, entering `SAI` wipes local progress, high score, local leaderboard, personal bests, onboarding state, and advanced unlocks.
+
+Every opened lootbox also has a 5% cursed chance to permanently enlarge the game's UI by another 10% in this browser.
 
 ## Enemy Types
 

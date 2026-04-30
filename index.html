@@ -39,13 +39,22 @@
               <button id="initialsSave" type="submit">Save</button>
             </div>
           </form>
+          <section id="lootboxPanel" class="lootbox-panel" aria-labelledby="lootboxTitle" aria-modal="true" role="dialog">
+            <div class="lootbox-card">
+              <p class="lootbox-kicker">Level up</p>
+              <h2 id="lootboxTitle">Pick one lootbox.</h2>
+              <div id="lootboxOptions" class="lootbox-options" aria-label="Lootbox choices"></div>
+            </div>
+          </section>
+          <div id="lootboxToast" class="lootbox-toast" role="status" aria-live="polite" aria-hidden="true"></div>
         </div>
         <div class="control-strip" aria-label="Controls">
           <span>Space: Jump</span>
+          <span>Hold Jump: Hover unlock</span>
           <span>Tap Anywhere: Jump</span>
           <span>Enter: Start or Restart</span>
           <span>P: Pause</span>
-          <span>M: Mute</span>
+          <span>M: Mute or Mash</span>
         </div>
       </section>
     </main>

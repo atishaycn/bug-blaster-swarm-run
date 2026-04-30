@@ -1728,20 +1728,27 @@ class Game {
     const currentFloor = this.playerLevel > 0 ? scoreForLevel(this.playerLevel) : 0;
     const nextScore = scoreForLevel(nextLevel);
     const progress = clamp((score - currentFloor) / (nextScore - currentFloor), 0, 1);
+    const x = 16;
+    const y = 76;
+    const w = 328;
+    const h = 34;
+    const barX = x + 14;
+    const barY = y + 23;
+    const barW = w - 88;
     ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
-    roundRect(ctx, 16, 76, 328, 28, 8);
+    roundRect(ctx, x, y, w, h, 8);
     ctx.fill();
-    const fill = ctx.createLinearGradient(28, 0, 328, 0);
+    const fill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
     fill.addColorStop(0, "#5fc8a6");
     fill.addColorStop(1, "#ffd166");
     ctx.fillStyle = fill;
-    roundRect(ctx, 28, 92, 232 * progress, 6, 3);
+    roundRect(ctx, barX, barY, barW * progress, 7, 4);
     ctx.fill();
     ctx.fillStyle = "#fff4d8";
     ctx.font = "800 13px Avenir, sans-serif";
-    ctx.fillText(`Level ${this.playerLevel}  Next ${nextScore}`, 30, 94);
+    ctx.fillText(`Level ${this.playerLevel}  Next ${nextScore}`, x + 14, y + 16);
     ctx.textAlign = "right";
-    ctx.fillText(`${Math.floor(progress * 100)}%`, 330, 94);
+    ctx.fillText(`${Math.floor(progress * 100)}%`, x + w - 14, y + 16);
     ctx.textAlign = "left";
   }
 

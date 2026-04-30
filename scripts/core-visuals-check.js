@@ -20,8 +20,8 @@ const { CORE_LEVEL_COLORS } = sandbox;
 const uniqueShirts = new Set(CORE_LEVEL_COLORS.map((level) => level.shirt));
 const uniqueShots = new Set(CORE_LEVEL_COLORS.map((level) => level.shot));
 
-if (CORE_LEVEL_COLORS.length !== 10) {
-  throw new Error("Level visuals should define one palette entry for levels 1 through 10.");
+if (CORE_LEVEL_COLORS.length < 10) {
+  throw new Error("Level visuals should keep enough palette entries for readable cycling.");
 }
 
 if (uniqueShirts.size !== CORE_LEVEL_COLORS.length || uniqueShots.size !== CORE_LEVEL_COLORS.length) {
@@ -42,6 +42,10 @@ if (!/tracePlayerShirt\(ctx,[\s\S]*?this\.w, this\.h\)/.test(source)) {
 
 if (!/const LEVEL_BASE_SCORE = 500;/.test(source) || !/function scoreForLevel\(level\)/.test(source)) {
   throw new Error("Advanced mode must keep score-based level thresholds.");
+}
+
+if (/MAX_UPGRADE_LEVEL/.test(source) || !/this\.upgradeLevel \+= 1/.test(source) || !/setPowerScale\(this\.upgradeLevel\)/.test(source)) {
+  throw new Error("Level Up pickups must scale indefinitely and grow the player with each level.");
 }
 
 if (!/ADVANCED_PROGRESS_KEY/.test(source) || !/function buildLootboxChoices/.test(source)) {

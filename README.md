@@ -77,11 +77,13 @@ The same dashboard also shows the player's personal best 10 performances from th
 - Drone Helper: companion drone fires extra bullets
 - Health: restores 1 health up to the current max
 - Max Health: increases max health by 1 and refills health
-- Level Up: permanent run upgrade with levels 1 through 10 that improves default fire rate first, then bullet speed, damage, light pierce, weapon duration, weapon spread, drone pierce, laser width, and stronger health pickups at higher levels
+- Level Up: permanent run upgrade with unlimited levels that steadily improves fire rate, bullet speed, damage, pierce, weapon duration, weapon spread, drone pierce, laser width, health pickups, and runner size by 1% per level without growing past the game screen
 
-Each level also changes the player's shirt color and default shot color so the current upgrade tier is visible during play. Level pickups arrive more slowly than weapon pickups so full leveling is a longer competitive target.
+Each level also changes the player's shirt color and default shot color so the current upgrade tier is visible during play. The color palette cycles after the first set of distinct looks while power keeps increasing. Level pickups arrive more slowly than weapon pickups so leveling remains a longer competitive target.
 
 All power-ups float above the standing player lane and require a jump to collect. Health, Max Health, and Level Up are the only non-weapon pickups. There are no shield, score boost, or generic power-ups. Level upgrades are permanent for the current run and help the player scale with the late-game swarm.
+
+Jumping down onto enemies stomps them and bounces the runner without dealing contact damage. Boss stomps damage the boss and bounce the runner, but side contact still hurts.
 
 ## Asset Strategy
 

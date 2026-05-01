@@ -20,6 +20,7 @@ const ONBOARDING_KEY = "bugBlasterRunnerOnboardingSeen";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
+const REMOVED_SCORE_VALUES = new Set([923400]);
 const ASSET_PATHS = {
   player: "assets/player.svg",
   groundCrawler: "assets/ground-crawler.svg",
@@ -611,7 +612,7 @@ class Game {
       new BackgroundLayer("bush", 272, 0.38, 170, 0.55, 0.82, 126, 50)
     ];
     this.state = "start";
-    this.highScore = Math.max(Number(localStorage.getItem(STORAGE_KEY) || 0), this.leaderboard[0]?.score || 0);
+    this.highScore = this.bestKnownScore();
     this.lastTime = 0;
     this.bindInput();
     this.reset();
@@ -828,7 +829,7 @@ class Game {
     postScore(entry).then((scores) => {
       if (scores.length) this.setLeaderboard(scores);
     });
-    this.highScore = Math.max(this.highScore, this.leaderboard[0]?.score || 0);
+    this.highScore = this.bestKnownScore();
     this.pendingEntry = null;
     this.initials = "";
     this.updateButtons();
@@ -854,7 +855,15 @@ class Game {
   setLeaderboard(scores) {
     this.leaderboard = normalizeScores(scores);
     saveLocalLeaderboard(this.leaderboard);
-    this.highScore = Math.max(this.highScore, this.leaderboard[0]?.score || 0);
+    this.highScore = this.bestKnownScore();
+  }
+
+  bestKnownScore(currentScore = 0) {
+    return Math.max(
+      Math.floor(currentScore),
+      this.leaderboard[0]?.score || 0,
+      this.personalScores[0]?.score || 0
+    );
   }
 
   loop(timestamp) {
@@ -1246,11 +1255,11 @@ class Game {
   gameOver() {
     this.state = "gameover";
     const finalScore = Math.floor(this.score);
-    this.highScore = Math.max(this.highScore, finalScore);
-    localStorage.setItem(STORAGE_KEY, String(this.highScore));
     if (finalScore > 0) {
       this.personalScores = savePersonalScore([...this.personalScores, { score: finalScore, elapsed: this.elapsed }]);
     }
+    this.highScore = this.bestKnownScore(finalScore);
+    localStorage.setItem(STORAGE_KEY, String(this.highScore));
     this.audio.beep("over");
     if (qualifiesForLeaderboard(this.leaderboard, finalScore)) {
       this.pendingEntry = { score: finalScore };
@@ -1263,10 +1272,8 @@ class Game {
 
   saveHighScore() {
     const score = Math.floor(this.score);
-    if (score > this.highScore) {
-      this.highScore = score;
-      localStorage.setItem(STORAGE_KEY, String(this.highScore));
-    }
+    this.highScore = this.bestKnownScore(score);
+    localStorage.setItem(STORAGE_KEY, String(this.highScore));
   }
 
   draw() {
@@ -1346,7 +1353,7 @@ class Game {
 
   drawUI(ctx) {
     const score = Math.floor(this.score);
-    this.highScore = Math.max(this.highScore, score);
+    this.highScore = this.bestKnownScore(score);
     ctx.save();
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "rgba(255, 250, 240, 0.9)";
@@ -1575,6 +1582,7 @@ function normalizeScores(rows) {
       initials: row.initials.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3).padEnd(3, "A"),
       score: Math.max(0, Math.floor(Number(row.score)))
     }))
+    .filter((row) => !(row.initials === "LIS" && REMOVED_SCORE_VALUES.has(row.score)))
     .sort((a, b) => b.score - a.score)
     .slice(0, LEADERBOARD_LIMIT);
 }
@@ -1601,6 +1609,7 @@ function normalizePersonalScores(rows) {
       score: Math.max(0, Math.floor(Number(row.score))),
       elapsed: Math.max(0, Number(row.elapsed) || 0)
     }))
+    .filter((row) => !REMOVED_SCORE_VALUES.has(row.score))
     .sort((a, b) => b.score - a.score || b.elapsed - a.elapsed)
     .slice(0, LEADERBOARD_LIMIT);
 }

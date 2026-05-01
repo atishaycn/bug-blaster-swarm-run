@@ -120,6 +120,19 @@ function isStompCollision(player, playerBox, targetBox) {
   return player.vy > 120 && playerBottom <= upperTarget;
 }
 
+function isBossAerialStomp(player, playerBox, bossBox) {
+  const playerBottom = playerBox.y + playerBox.h;
+  const playerCenterX = playerBox.x + playerBox.w / 2;
+  const upperBoss = bossBox.y + bossBox.h * 0.45;
+  return (
+    player.vy > 120 &&
+    playerCenterX >= bossBox.x - 8 &&
+    playerCenterX <= bossBox.x + bossBox.w + 8 &&
+    playerBox.y < bossBox.y &&
+    playerBottom <= upperBoss
+  );
+}
+
 class AssetManager {
   constructor(paths) {
     this.images = {};
@@ -1169,13 +1182,17 @@ class Game {
     });
     if (this.boss) {
       const bossBox = this.boss.hitbox();
-      if (rectsOverlap(playerBox, bossBox)) {
-        if (isStompCollision(this.player, playerBox, bossBox)) {
-          this.boss.damage(3);
-          this.player.bounceFromStomp();
-          this.spawnHit(this.player.x + 35, bossBox.y, "#ffd166");
-          this.audio.beep("hit");
-        } else if (this.player.damage()) {
+      const touchingBoss = rectsOverlap(playerBox, bossBox);
+      const stompingBoss = touchingBoss
+        ? isStompCollision(this.player, playerBox, bossBox)
+        : isBossAerialStomp(this.player, playerBox, bossBox);
+      if (stompingBoss) {
+        this.boss.damage(3);
+        this.player.bounceFromStomp();
+        this.spawnHit(this.player.x + 35, bossBox.y, "#ffd166");
+        this.audio.beep("hit");
+      } else if (touchingBoss) {
+        if (this.player.damage()) {
           this.spawnHit(this.player.x + 35, this.player.y + 35, "#ff5f57");
           this.audio.beep("damage");
         }

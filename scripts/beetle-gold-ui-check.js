@@ -40,6 +40,10 @@ if (!/id="goldCount"/.test(html) || !/id="beetleField"/.test(html) || !/id="gold
   throw new Error("Gold counter, shop, and beetle field should exist outside the game section.");
 }
 
+["Machine Gun - 30", "Laser Blaster - 60", "Shotgun - 100"].forEach((item) => {
+  if (!html.includes(item)) throw new Error(`Gold shop is missing ${item}.`);
+});
+
 if (!/\.bonus-beetle/.test(styles) || !/\.gold-shop/.test(styles) || !/cursor: default;/.test(styles) || !/\.beetle-field\s*\{[\s\S]*?position: fixed;[\s\S]*?inset: 0;/.test(styles)) {
   throw new Error("Bonus beetles and shop should be styled across the fixed viewport and the canvas should not look clickable.");
 }

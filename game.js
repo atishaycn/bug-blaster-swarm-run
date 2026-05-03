@@ -160,6 +160,10 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function rectsIntersect(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
 function circleRectOverlap(cx, cy, radius, rect) {
   const closestX = clamp(cx, rect.x, rect.x + rect.w);
   const closestY = clamp(cy, rect.y, rect.y + rect.h);
@@ -2545,11 +2549,12 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 class BeetleGoldHunt {
-  constructor(field, countEl) {
+  constructor(field, countEl, avoidEl) {
     this.field = field;
     this.countEl = countEl;
+    this.avoidEl = avoidEl;
     this.gold = Math.max(0, Math.floor(Number(localStorage.getItem(GOLD_KEY)) || 0));
-    this.maxBeetles = 4;
+    this.maxBeetles = 10;
     this.spawnTimer = 0;
     this.beetles = new Set();
     this.updateGold();
@@ -2566,12 +2571,14 @@ class BeetleGoldHunt {
 
   spawnBeetle() {
     if (!this.field || this.beetles.size >= this.maxBeetles) return;
+    const point = this.findSpawnPoint();
+    if (!point) return;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "bonus-beetle";
     button.setAttribute("aria-label", "Collect beetle for 1 gold");
-    button.style.left = `${rand(8, 92)}%`;
-    button.style.top = `${rand(24, 76)}%`;
+    button.style.left = `${point.x}px`;
+    button.style.top = `${point.y}px`;
 
     const img = document.createElement("img");
     img.src = ASSET_PATHS.tankBeetle;
@@ -2593,6 +2600,28 @@ class BeetleGoldHunt {
 
     this.beetles.add(button);
     this.field.append(button);
+  }
+
+  findSpawnPoint() {
+    const beetleW = 44;
+    const beetleH = 36;
+    const margin = 18;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    if (width < beetleW + margin * 2 || height < beetleH + margin * 2) return null;
+    const blocked = this.avoidEl?.getBoundingClientRect?.();
+    for (let i = 0; i < 80; i++) {
+      const x = rand(margin + beetleW / 2, width - margin - beetleW / 2);
+      const y = rand(margin + beetleH / 2, height - margin - beetleH / 2);
+      const rect = {
+        left: x - beetleW / 2,
+        right: x + beetleW / 2,
+        top: y - beetleH / 2,
+        bottom: y + beetleH / 2
+      };
+      if (!blocked || !rectsIntersect(rect, blocked)) return { x, y };
+    }
+    return null;
   }
 
   removeBeetle(button) {
@@ -2667,6 +2696,6 @@ const canvas = document.getElementById("gameCanvas");
 const muteButton = document.getElementById("muteButton");
 const restartButton = document.getElementById("restartButton");
 const game = new Game(canvas, muteButton, restartButton);
-const beetleGoldHunt = new BeetleGoldHunt(document.getElementById("beetleField"), document.getElementById("goldCount"));
+const beetleGoldHunt = new BeetleGoldHunt(document.getElementById("beetleField"), document.getElementById("goldCount"), document.querySelector(".canvas-wrap"));
 window.__bugBlasterGame = game;
 window.__beetleGoldHunt = beetleGoldHunt;

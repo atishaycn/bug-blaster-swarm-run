@@ -395,15 +395,18 @@ canvas {
 }
 
 .beetle-hunt {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: stretch;
-  margin-top: 12px;
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
 }
 
 .gold-meter {
-  min-width: 104px;
+  position: fixed;
+  left: 18px;
+  top: 18px;
+  z-index: 8;
+  min-width: 112px;
   display: grid;
   align-content: center;
   justify-items: start;
@@ -411,7 +414,9 @@ canvas {
   border: 1px solid rgba(25, 50, 60, 0.12);
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 250, 240, 0.88);
+  box-shadow: 0 12px 30px rgba(75, 54, 32, 0.14);
+  pointer-events: auto;
 }
 
 .gold-meter span {
@@ -429,18 +434,13 @@ canvas {
 }
 
 .beetle-field {
-  position: relative;
-  min-height: 74px;
-  border: 1px dashed rgba(25, 50, 60, 0.18);
-  border-radius: 8px;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(95, 200, 166, 0.12), rgba(255, 209, 102, 0.12)),
-    rgba(255, 255, 255, 0.38);
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
 }
 
 .bonus-beetle {
-  position: absolute;
+  position: fixed;
   width: 38px;
   height: 30px;
   min-height: 0;
@@ -454,6 +454,7 @@ canvas {
   transform: translate(-50%, -50%) scale(0.92);
   opacity: 0;
   animation: beetle-pop 180ms ease forwards;
+  pointer-events: auto;
 }
 
 .bonus-beetle:hover {
@@ -581,30 +582,6 @@ canvas {
     min-height: 26px;
     padding: 0 9px;
     font-size: 0.76rem;
-  }
-
-  .beetle-hunt {
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .gold-meter {
-    min-width: 0;
-    padding: 8px 9px;
-  }
-
-  .gold-meter strong {
-    font-size: 1.28rem;
-  }
-
-  .beetle-field {
-    min-height: 50px;
-  }
-
-  .bonus-beetle {
-    width: 34px;
-    height: 27px;
   }
 
   .lootbox-panel {

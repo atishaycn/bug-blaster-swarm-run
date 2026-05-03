@@ -28,12 +28,16 @@ if (!/class BeetleGoldHunt/.test(game) || !/localStorage\.setItem\(GOLD_KEY/.tes
   throw new Error("Beetle gold hunt should manage and persist gold.");
 }
 
-if (!/id="goldCount"/.test(html) || !/id="beetleField"/.test(html)) {
-  throw new Error("Gold counter and beetle field should exist outside the game window.");
+if (!/findSpawnPoint\(\)/.test(game) || !/document\.querySelector\("\.canvas-wrap"\)/.test(game)) {
+  throw new Error("Beetle spawns should use the full viewport while avoiding the game window.");
 }
 
-if (!/\.bonus-beetle/.test(styles) || !/cursor: default;/.test(styles)) {
-  throw new Error("Bonus beetles should be styled and the canvas should not look clickable.");
+if (!/id="goldCount"/.test(html) || !/id="beetleField"/.test(html)) {
+  throw new Error("Gold counter and beetle field should exist outside the game section.");
+}
+
+if (!/\.bonus-beetle/.test(styles) || !/cursor: default;/.test(styles) || !/\.beetle-field\s*\{[\s\S]*?position: fixed;[\s\S]*?inset: 0;/.test(styles)) {
+  throw new Error("Bonus beetles should be styled across the fixed viewport and the canvas should not look clickable.");
 }
 
 console.log("Beetle gold UI check passed.");

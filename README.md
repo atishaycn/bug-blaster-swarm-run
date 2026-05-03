@@ -22,7 +22,7 @@ The `/api/scores` endpoint uses Vercel KV or Upstash Redis REST environment vari
 - `M`: mute or unmute generated audio
 - Mash `M` 30 times in 10 seconds: play the hidden monster mash riff
 
-Mouse and touch input are disabled inside the main game window. Small beetles periodically appear outside the game window; click them to collect 1 gold in the separate gold counter.
+Mouse and touch input are disabled inside the main game window. Small beetles periodically appear anywhere outside the game window; click them to collect 1 gold in the separate gold counter.
 
 ## Gameplay
 

@@ -138,6 +138,8 @@ const GASOLINE_POOL_LIFE = 12;
 const GASOLINE_IGNITED_LIFE = 8;
 const BEETLE_PHASE_HEALTH_MULTIPLIER = 0.5;
 const BEETLE_RECHARGE_DURATION = 2.6;
+const AIR_STOMP_RADIUS = 150;
+const AIR_STOMP_LIMIT = 3;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -334,6 +336,7 @@ class Player {
     this.recoil = 0;
     this.airTime = 0;
     this.hoverTime = 0;
+    this.airStompReady = true;
   }
 
   reset() {
@@ -348,6 +351,7 @@ class Player {
     this.recoil = 0;
     this.airTime = 0;
     this.hoverTime = 0;
+    this.airStompReady = true;
   }
 
   setPowerScale(level) {
@@ -366,7 +370,10 @@ class Player {
       this.grounded = false;
       this.airTime = 0;
       this.hoverTime = acrobatics === "hover" ? 2 : 0;
+      this.airStompReady = true;
+      return true;
     }
+    return false;
   }
 
   update(dt, acrobatics = "classic", jumpHeld = false) {
@@ -383,6 +390,7 @@ class Player {
       this.grounded = true;
       this.airTime = 0;
       this.hoverTime = 0;
+      this.airStompReady = true;
     } else {
       this.airTime += dt;
     }
@@ -407,6 +415,15 @@ class Player {
     this.grounded = false;
     this.airTime = 0;
     this.hoverTime = 0;
+    this.airStompReady = true;
+  }
+
+  airStomp() {
+    if (this.grounded || !this.airStompReady) return false;
+    this.airStompReady = false;
+    this.vy = 980;
+    this.hoverTime = 0;
+    return true;
   }
 
   barrel() {
@@ -956,7 +973,7 @@ class Game {
       if (["Space", "ArrowUp"].includes(event.code) || event.key.toLowerCase() === "w") {
         event.preventDefault();
         this.jumpHeld = true;
-        this.actionJump();
+        if (!event.repeat) this.actionJump();
       } else if (event.key === "Enter") {
         event.preventDefault();
         this.startOrRestart();
@@ -1061,8 +1078,37 @@ class Game {
   actionJump() {
     if (this.onboardingVisible) return;
     if (this.state === "fakeout") return;
-    if (this.state === "playing") this.player.jump(this.currentAcrobatics());
+    if (this.state === "playing") {
+      if (!this.player.jump(this.currentAcrobatics())) this.triggerAirStomp();
+    }
     else if (this.state === "start" || this.state === "gameover") this.startOrRestart();
+  }
+
+  triggerAirStomp() {
+    if (!this.player.airStomp()) return;
+    const center = {
+      x: this.player.x + this.player.w / 2,
+      y: this.player.y + this.player.h / 2
+    };
+    const targets = this.enemies
+      .filter((enemy) => !enemy.dead)
+      .map((enemy) => {
+        const box = enemy.hitbox();
+        const enemyCenter = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+        const dx = enemyCenter.x - center.x;
+        const dy = enemyCenter.y - center.y;
+        return { enemy, distanceSq: dx * dx + dy * dy, x: enemyCenter.x, y: enemyCenter.y };
+      })
+      .filter((target) => target.distanceSq <= AIR_STOMP_RADIUS * AIR_STOMP_RADIUS)
+      .sort((a, b) => a.distanceSq - b.distanceSq)
+      .slice(0, AIR_STOMP_LIMIT);
+    targets.forEach((target) => {
+      target.enemy.damage(target.enemy.health);
+      this.spawnHit(target.x, target.y, "#ffd166");
+      for (let i = 0; i < 8; i++) this.spawnParticle(target.x, target.y, "#ffd166", rand(2, 5), rand(-150, 150), rand(-190, 20), 0.35);
+    });
+    this.audio.beep(targets.length ? "pop" : "hit");
+    for (let i = 0; i < 18; i++) this.spawnParticle(center.x, center.y + 18, "#fff4a3", rand(2, 6), rand(-220, 220), rand(-90, 130), 0.34);
   }
 
   togglePause() {

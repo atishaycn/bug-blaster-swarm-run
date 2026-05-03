@@ -132,6 +132,7 @@ const BOSS_HEALTH_MULTIPLIER = 0.75;
 const GASOLINE_BLEED_STEP = 0.1;
 const GASOLINE_HONK_STEP = 0.25;
 const GASOLINE_POOL_RADIUS = 118;
+const GASOLINE_IGNITION_HEIGHT = 92;
 const GASOLINE_IGNITE_DAMAGE_RATIO = 0.3;
 const GASOLINE_IGNITE_TICK = 2;
 const GASOLINE_POOL_LIFE = 12;
@@ -164,6 +165,19 @@ function circleRectOverlap(cx, cy, radius, rect) {
   const dx = cx - closestX;
   const dy = cy - closestY;
   return dx * dx + dy * dy <= radius * radius;
+}
+
+function bulletIgnitesGasoline(bullet, pool) {
+  const box = pool.ignitionHitbox();
+  const radius = bullet.radius + 8;
+  if (circleRectOverlap(bullet.x, bullet.y, radius, box)) return true;
+  const prevX = Number.isFinite(bullet.prevX) ? bullet.prevX : bullet.x;
+  const prevY = Number.isFinite(bullet.prevY) ? bullet.prevY : bullet.y;
+  const minX = Math.min(prevX, bullet.x) - radius;
+  const maxX = Math.max(prevX, bullet.x) + radius;
+  const minY = Math.min(prevY, bullet.y) - radius;
+  const maxY = Math.max(prevY, bullet.y) + radius;
+  return maxX >= box.x && minX <= box.x + box.w && maxY >= box.y && minY <= box.y + box.h;
 }
 
 function isStompCollision(player, playerBox, targetBox) {
@@ -499,6 +513,8 @@ class Bullet {
   }
 
   update(dt) {
+    this.prevX = this.x;
+    this.prevY = this.y;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     if (this.x > WIDTH + 80 || this.y < -80 || this.y > HEIGHT + 80) this.dead = true;
@@ -777,6 +793,15 @@ class GasolinePool {
 
   hitbox() {
     return { x: this.x - this.radius, y: this.y - 20, w: this.radius * 2, h: 42 };
+  }
+
+  ignitionHitbox() {
+    return {
+      x: this.x - this.radius,
+      y: this.y - GASOLINE_IGNITION_HEIGHT,
+      w: this.radius * 2,
+      h: GASOLINE_IGNITION_HEIGHT + 30
+    };
   }
 
   draw(ctx) {
@@ -1765,7 +1790,7 @@ class Game {
       let hitSomething = false;
       this.gasolinePools.forEach((pool) => {
         if (pool.ignited || bullet.dead) return;
-        if (circleRectOverlap(bullet.x, bullet.y, bullet.radius + 3, pool.hitbox())) {
+        if (bulletIgnitesGasoline(bullet, pool)) {
           this.igniteGasolinePool(pool, bullet.x, bullet.y);
           hitSomething = true;
           if (bullet.type !== "rocket" && bullet.type !== "pierce") bullet.dead = true;

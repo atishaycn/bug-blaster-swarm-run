@@ -136,6 +136,7 @@ const GASOLINE_IGNITE_DAMAGE_RATIO = 0.3;
 const GASOLINE_IGNITE_TICK = 2;
 const GASOLINE_POOL_LIFE = 12;
 const GASOLINE_IGNITED_LIFE = 8;
+const GASOLINE_MAX_POOLS = 6;
 const BEETLE_PHASE_HEALTH_MULTIPLIER = 0.5;
 const BEETLE_RECHARGE_DURATION = 2.6;
 const AIR_STOMP_RADIUS = 150;
@@ -730,7 +731,10 @@ class Boss {
       ctx.ellipse(this.x + this.w / 2, this.y + this.h / 2, this.w * 0.68, this.h * 0.58, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      ctx.drawImage(assets.get("exxonGasStation"), this.x + this.w - 28, GROUND_Y - 92, 86, 92);
+      const station = assets.get("exxonGasStation");
+      if (station?.complete && station.naturalWidth > 0) {
+        ctx.drawImage(station, this.x + this.w - 28, GROUND_Y - 92, 86, 92);
+      }
     }
     if (this.hitFlash > 0) ctx.filter = "brightness(2.1)";
     ctx.drawImage(assets.get(this.asset), this.x, this.y, this.w, this.h);
@@ -769,8 +773,11 @@ class GasolinePool {
 
   draw(ctx) {
     ctx.save();
+    const x = Number.isFinite(this.x) ? this.x : 0;
+    const y = Number.isFinite(this.y) ? this.y : GROUND_Y;
+    const radius = Math.max(1, Number.isFinite(this.radius) ? this.radius : GASOLINE_POOL_RADIUS);
     ctx.globalAlpha = clamp(this.life / GASOLINE_POOL_LIFE, 0, 0.9);
-    const gradient = ctx.createRadialGradient(this.x, this.y, 8, this.x, this.y, this.radius);
+    const gradient = ctx.createRadialGradient(x, y, 8, x, y, radius);
     if (this.ignited) {
       gradient.addColorStop(0, "rgba(255, 220, 74, 0.9)");
       gradient.addColorStop(0.45, "rgba(249, 115, 22, 0.68)");
@@ -782,15 +789,15 @@ class GasolinePool {
     }
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.ellipse(this.x, this.y, this.radius, 24, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, radius, 24, 0, 0, Math.PI * 2);
     ctx.fill();
     if (this.ignited) {
       ctx.fillStyle = "rgba(255, 244, 163, 0.9)";
       for (let i = 0; i < 5; i++) {
-        const px = this.x - 64 + i * 32;
+        const px = x - 64 + i * 32;
         ctx.beginPath();
-        ctx.moveTo(px, this.y - 8);
-        ctx.quadraticCurveTo(px + 8, this.y - 34 - (i % 2) * 8, px + 17, this.y - 8);
+        ctx.moveTo(px, y - 8);
+        ctx.quadraticCurveTo(px + 8, y - 34 - (i % 2) * 8, px + 17, y - 8);
         ctx.closePath();
         ctx.fill();
       }
@@ -1610,12 +1617,16 @@ class Game {
     boss.damage(amount);
     const afterRatio = Math.max(0, boss.health / boss.maxHealth);
     if (boss.kind !== "beetle") return;
+    let honks = 0;
     while (boss.nextHonkRatio > 0 && beforeRatio > boss.nextHonkRatio && afterRatio <= boss.nextHonkRatio) {
-      this.honkVolkswagenBoss(boss);
+      if (honks < 1) this.honkVolkswagenBoss(boss);
+      honks += 1;
       boss.nextHonkRatio -= GASOLINE_HONK_STEP;
     }
+    let leaks = 0;
     while (boss.nextBleedRatio > 0 && beforeRatio > boss.nextBleedRatio && afterRatio <= boss.nextBleedRatio) {
-      this.bleedGasoline(boss, sourceX, sourceY);
+      if (leaks < 2) this.bleedGasoline(boss, sourceX, sourceY);
+      leaks += 1;
       boss.nextBleedRatio -= GASOLINE_BLEED_STEP;
     }
   }
@@ -1629,6 +1640,7 @@ class Game {
   }
 
   bleedGasoline(boss, sourceX, sourceY) {
+    if (this.gasolinePools.length >= GASOLINE_MAX_POOLS) this.gasolinePools.shift();
     const x = clamp(sourceX || boss.x + boss.w * 0.45, boss.x + 20, boss.x + boss.w - 20);
     const y = GROUND_Y - 8;
     const pool = new GasolinePool(x, y);
@@ -1659,7 +1671,7 @@ class Game {
         const dx = centerX - pool.x;
         const dy = centerY - pool.y;
         if (dx * dx + dy * dy > pool.radius * pool.radius) return;
-        enemy.damage(Math.max(1, enemy.maxHealth * GASOLINE_IGNITE_DAMAGE_RATIO));
+        enemy.damage(Math.max(1, Math.ceil(enemy.maxHealth * GASOLINE_IGNITE_DAMAGE_RATIO)));
         this.spawnHit(centerX, centerY, "#f97316");
       });
     });
@@ -1863,7 +1875,13 @@ class Game {
     this.drawBackground(ctx);
     this.layers.forEach((layer) => layer.draw(ctx, this.assets));
     this.drawGround(ctx);
-    this.gasolinePools.forEach((p) => p.draw(ctx));
+    this.gasolinePools.forEach((p) => {
+      try {
+        p.draw(ctx);
+      } catch {
+        p.life = 0;
+      }
+    });
     this.powerUps.forEach((p) => p.draw(ctx, this.assets));
     this.bullets.forEach((b) => b.draw(ctx));
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);

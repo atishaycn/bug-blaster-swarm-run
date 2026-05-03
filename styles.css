@@ -483,6 +483,21 @@ canvas {
   background: #ffe08a;
 }
 
+.gold-shop button:disabled {
+  color: rgba(43, 23, 13, 0.54);
+  background: rgba(255, 209, 102, 0.44);
+  cursor: not-allowed;
+}
+
+.gold-shop button.is-equipped {
+  color: #ecfeff;
+  background: #19323c;
+}
+
+.gold-shop button.is-equipped:hover {
+  background: #24495a;
+}
+
 .beetle-field {
   position: fixed;
   inset: 0;

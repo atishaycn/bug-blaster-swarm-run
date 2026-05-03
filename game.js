@@ -19,6 +19,8 @@ const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
 const ONBOARDING_KEY = "bugBlasterRunnerOnboardingSeen";
 const ADVANCED_PROGRESS_KEY = "bugBlasterAdvancedProgress";
 const GOLD_KEY = "bugBlasterGold";
+const SECONDARY_WEAPONS_KEY = "bugBlasterSecondaryWeapons";
+const SECONDARY_EQUIPPED_KEY = "bugBlasterSecondaryEquipped";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
@@ -60,6 +62,12 @@ const WEAPONS = {
   laser: { name: "Laser Beam", label: "L", color: "#f43f5e", duration: 4, asset: "laserPower" },
   rocket: { name: "Rocket Shot", label: "X", color: "#f97316", duration: 11, asset: "rocketPower" },
   drone: { name: "Drone Helper", label: "D", color: "#5fc8a6", duration: 12, asset: "dronePower" }
+};
+
+const SECONDARY_WEAPONS = {
+  machineGun: { name: "Machine Gun", cost: 30, interval: 0.075, color: "#ffd166" },
+  laserBlaster: { name: "Laser Blaster", cost: 60, interval: 0.09, color: "#38bdf8" },
+  shotgun: { name: "Shotgun", cost: 100, interval: 0.58, color: "#f97316" }
 };
 
 const PICKUPS = {
@@ -934,6 +942,10 @@ class Game {
     this.personalScores = loadPersonalScores();
     this.pendingEntry = null;
     this.initials = "";
+    this.secondaryWeapon = validSecondaryWeapon(localStorage.getItem(SECONDARY_EQUIPPED_KEY)) ? localStorage.getItem(SECONDARY_EQUIPPED_KEY) : null;
+    this.secondaryHeld = false;
+    this.secondaryFireTimer = 0;
+    this.secondaryLaserBeam = null;
     this.layers = [
       new BackgroundLayer("hills", 226, 0.11, 310, 1.08, 0.7, 180, 70),
       new BackgroundLayer("cloud", 48, 0.08, 300, 0.84, 0.92, 130, 54),
@@ -969,6 +981,8 @@ class Game {
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
     this.laserTick = 0;
+    this.secondaryFireTimer = 0;
+    this.secondaryLaserBeam = null;
     this.activeWeapon = null;
     this.weaponTimer = 0;
     this.weaponDuration = 0;
@@ -1037,7 +1051,17 @@ class Game {
     this.canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      this.beginSecondaryFire(event);
     }, { passive: false });
+    window.addEventListener("pointerdown", (event) => {
+      this.beginSecondaryFire(event);
+    });
+    window.addEventListener("pointerup", () => {
+      this.endSecondaryFire();
+    });
+    window.addEventListener("pointercancel", () => {
+      this.endSecondaryFire();
+    });
     this.restartButton.addEventListener("click", (event) => {
       event.stopPropagation();
       this.startOrRestart();
@@ -1074,6 +1098,22 @@ class Game {
     this.lootboxPanel?.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     });
+  }
+
+  beginSecondaryFire(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    const target = event.target;
+    if (target?.closest?.("button, input, textarea, select, form, a")) return;
+    if (!this.secondaryWeapon || this.state !== "playing") return;
+    event.preventDefault?.();
+    this.audio.ensure();
+    this.secondaryHeld = true;
+    this.secondaryFireTimer = 0;
+    this.fireSecondaryWeapon();
+  }
+
+  endSecondaryFire() {
+    this.secondaryHeld = false;
   }
 
   startOrRestart() {
@@ -1370,6 +1410,7 @@ class Game {
     this.layers.forEach((layer) => layer.update(dt, this.worldSpeed));
     this.player.update(dt, this.currentAcrobatics(), this.jumpHeld);
     this.updateWeapons(dt);
+    this.updateSecondaryWeapon(dt);
     this.updateSpawns(dt);
     this.bullets.forEach((b) => b.update(dt));
     this.enemies.forEach((e) => e.update(dt, this.worldSpeed));
@@ -1478,6 +1519,59 @@ class Game {
     const colors = type === "rocket" ? null : coreLevelColors(this.upgradeLevel);
     this.bullets.push(new Bullet(barrel.x, barrel.y, speed + this.powerBonusLevel() * 24, vy, type, damage, pierce, colors, this.currentBulletStyle()));
     this.player.recoil = 1;
+    this.audio.beep("shoot");
+  }
+
+  updateSecondaryWeapon(dt) {
+    if (this.secondaryLaserBeam) {
+      this.secondaryLaserBeam.life -= dt;
+      if (this.secondaryLaserBeam.life <= 0) this.secondaryLaserBeam = null;
+    }
+    if (!this.secondaryHeld || !this.secondaryWeapon || this.state !== "playing") return;
+    const weapon = SECONDARY_WEAPONS[this.secondaryWeapon];
+    if (!weapon) return;
+    this.secondaryFireTimer -= dt;
+    while (this.secondaryFireTimer <= 0) {
+      this.fireSecondaryWeapon();
+      this.secondaryFireTimer += weapon.interval;
+    }
+  }
+
+  fireSecondaryWeapon() {
+    if (!this.secondaryWeapon || this.state !== "playing") return;
+    if (this.secondaryWeapon === "machineGun") {
+      this.fireSecondaryBullet(0, "machine", 1, 1, 920, "#ffd166");
+    } else if (this.secondaryWeapon === "shotgun") {
+      [-240, -155, -80, 0, 80, 155, 240].forEach((vy) => {
+        this.fireSecondaryBullet(vy, "shotgun", 1, 1, 650, "#f97316");
+      });
+    } else if (this.secondaryWeapon === "laserBlaster") {
+      this.fireSecondaryLaser();
+    }
+  }
+
+  fireSecondaryBullet(vy, type, damage, pierce, speed, color) {
+    const barrel = this.player.barrel();
+    this.bullets.push(new Bullet(barrel.x, barrel.y, speed, vy, type, damage, pierce, { shot: color, stroke: "#19323c", glow: color }, "spark"));
+    this.player.recoil = 0.8;
+    this.audio.beep("shoot");
+  }
+
+  fireSecondaryLaser() {
+    const barrel = this.player.barrel();
+    const beamH = 14;
+    const beam = { x: barrel.x, y: barrel.y - beamH / 2, w: WIDTH - barrel.x, h: beamH };
+    this.secondaryLaserBeam = { ...beam, life: 0.11 };
+    this.spawnParticle(barrel.x + 90, barrel.y, "#38bdf8", 3, rand(100, 260), rand(-40, 40), 0.15);
+    const targets = [...this.enemies];
+    if (this.boss) targets.push(this.boss);
+    targets.forEach((target) => {
+      if (this.canLaserDamageTarget(target, beam)) {
+        if (target === this.boss) this.damageBoss(1, target.x + target.w * 0.45, target.y + target.h * 0.5);
+        else target.damage(1);
+        this.spawnHit(target.x + target.w * 0.45, target.y + target.h * 0.5, "#38bdf8");
+      }
+    });
     this.audio.beep("shoot");
   }
 
@@ -1897,6 +1991,7 @@ class Game {
     this.powerUps.forEach((p) => p.draw(ctx, this.assets));
     this.bullets.forEach((b) => b.draw(ctx));
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);
+    if (this.secondaryLaserBeam && this.state === "playing") this.drawSecondaryLaser(ctx);
     if (this.boss) this.boss.draw(ctx, this.assets);
     this.enemies.forEach((e) => e.draw(ctx, this.assets, this.graveyardMode));
     if (this.state === "fakeout") this.drawFakeoutPlayer(ctx);
@@ -2028,6 +2123,29 @@ class Game {
     ctx.beginPath();
     ctx.moveTo(barrel.x, barrel.y);
     ctx.lineTo(WIDTH, barrel.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawSecondaryLaser(ctx) {
+    const beam = this.secondaryLaserBeam;
+    if (!beam) return;
+    ctx.save();
+    ctx.globalAlpha = clamp(beam.life / 0.11, 0, 1);
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 7;
+    ctx.shadowColor = "#7dd3fc";
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.moveTo(beam.x, beam.y + beam.h / 2);
+    ctx.lineTo(WIDTH, beam.y + beam.h / 2);
+    ctx.stroke();
+    ctx.strokeStyle = "#ecfeff";
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(beam.x, beam.y + beam.h / 2);
+    ctx.lineTo(WIDTH, beam.y + beam.h / 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -2538,6 +2656,24 @@ function ordinal(rank) {
   return `${rank}TH`;
 }
 
+function validSecondaryWeapon(id) {
+  return Object.prototype.hasOwnProperty.call(SECONDARY_WEAPONS, id);
+}
+
+function readOwnedSecondaryWeapons() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SECONDARY_WEAPONS_KEY) || "[]");
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter(validSecondaryWeapon));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistOwnedSecondaryWeapons(owned) {
+  localStorage.setItem(SECONDARY_WEAPONS_KEY, JSON.stringify([...owned].filter(validSecondaryWeapon)));
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -2549,17 +2685,33 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 class BeetleGoldHunt {
-  constructor(field, countEl, avoidEl, shopEl) {
+  constructor(field, countEl, avoidEl, shopEl, game) {
     this.field = field;
     this.countEl = countEl;
     this.avoidEl = avoidEl;
     this.shopEl = shopEl;
+    this.game = game;
     this.gold = Math.max(0, Math.floor(Number(localStorage.getItem(GOLD_KEY)) || 0));
+    this.ownedWeapons = readOwnedSecondaryWeapons();
+    this.equippedWeapon = validSecondaryWeapon(localStorage.getItem(SECONDARY_EQUIPPED_KEY)) ? localStorage.getItem(SECONDARY_EQUIPPED_KEY) : null;
     this.maxBeetles = 10;
     this.spawnTimer = 0;
     this.beetles = new Set();
+    this.bindShop();
+    this.equipWeapon(this.equippedWeapon, false);
     this.updateGold();
     this.scheduleNext();
+  }
+
+  bindShop() {
+    this.shopEl?.addEventListener("click", (event) => {
+      const button = event.target.closest?.("[data-shop-weapon]");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.buyOrEquipWeapon(button.dataset.shopWeapon);
+    });
+    this.shopEl?.addEventListener("pointerdown", (event) => event.stopPropagation());
   }
 
   scheduleNext() {
@@ -2640,6 +2792,47 @@ class BeetleGoldHunt {
     const visible = this.gold >= 10;
     this.shopEl?.classList.toggle("is-visible", visible);
     this.shopEl?.setAttribute("aria-hidden", String(!visible));
+    this.shopEl?.querySelectorAll("[data-shop-weapon]").forEach((button) => {
+      const weaponId = button.dataset.shopWeapon;
+      const weapon = SECONDARY_WEAPONS[weaponId];
+      if (!weapon) return;
+      const owned = this.ownedWeapons.has(weaponId);
+      const equipped = this.equippedWeapon === weaponId;
+      button.classList.toggle("is-equipped", equipped);
+      button.disabled = !owned && this.gold < weapon.cost;
+      button.textContent = owned
+        ? `${weapon.name} - ${equipped ? "Equipped" : "Equip"}`
+        : `${weapon.name} - ${weapon.cost}`;
+    });
+  }
+
+  buyOrEquipWeapon(weaponId) {
+    if (!validSecondaryWeapon(weaponId)) return;
+    const weapon = SECONDARY_WEAPONS[weaponId];
+    if (!this.ownedWeapons.has(weaponId)) {
+      if (this.gold < weapon.cost) return;
+      this.gold -= weapon.cost;
+      localStorage.setItem(GOLD_KEY, String(this.gold));
+      this.ownedWeapons.add(weaponId);
+      persistOwnedSecondaryWeapons(this.ownedWeapons);
+    }
+    this.equipWeapon(weaponId);
+    this.updateGold();
+  }
+
+  equipWeapon(weaponId, persist = true) {
+    if (weaponId && !validSecondaryWeapon(weaponId)) return;
+    this.equippedWeapon = weaponId;
+    if (this.game) {
+      this.game.secondaryWeapon = weaponId;
+      this.game.secondaryHeld = false;
+      this.game.secondaryFireTimer = 0;
+      this.game.secondaryLaserBeam = null;
+    }
+    if (persist) {
+      if (weaponId) localStorage.setItem(SECONDARY_EQUIPPED_KEY, weaponId);
+      else localStorage.removeItem(SECONDARY_EQUIPPED_KEY);
+    }
   }
 }
 
@@ -2708,7 +2901,8 @@ const beetleGoldHunt = new BeetleGoldHunt(
   document.getElementById("beetleField"),
   document.getElementById("goldCount"),
   document.querySelector(".canvas-wrap"),
-  document.getElementById("goldShop")
+  document.getElementById("goldShop"),
+  game
 );
 window.__bugBlasterGame = game;
 window.__beetleGoldHunt = beetleGoldHunt;

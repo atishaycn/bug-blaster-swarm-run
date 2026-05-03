@@ -2549,10 +2549,11 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 class BeetleGoldHunt {
-  constructor(field, countEl, avoidEl) {
+  constructor(field, countEl, avoidEl, shopEl) {
     this.field = field;
     this.countEl = countEl;
     this.avoidEl = avoidEl;
+    this.shopEl = shopEl;
     this.gold = Math.max(0, Math.floor(Number(localStorage.getItem(GOLD_KEY)) || 0));
     this.maxBeetles = 10;
     this.spawnTimer = 0;
@@ -2632,6 +2633,13 @@ class BeetleGoldHunt {
 
   updateGold() {
     if (this.countEl) this.countEl.textContent = String(this.gold);
+    this.updateShop();
+  }
+
+  updateShop() {
+    const visible = this.gold >= 10;
+    this.shopEl?.classList.toggle("is-visible", visible);
+    this.shopEl?.setAttribute("aria-hidden", String(!visible));
   }
 }
 
@@ -2696,6 +2704,11 @@ const canvas = document.getElementById("gameCanvas");
 const muteButton = document.getElementById("muteButton");
 const restartButton = document.getElementById("restartButton");
 const game = new Game(canvas, muteButton, restartButton);
-const beetleGoldHunt = new BeetleGoldHunt(document.getElementById("beetleField"), document.getElementById("goldCount"), document.querySelector(".canvas-wrap"));
+const beetleGoldHunt = new BeetleGoldHunt(
+  document.getElementById("beetleField"),
+  document.getElementById("goldCount"),
+  document.querySelector(".canvas-wrap"),
+  document.getElementById("goldShop")
+);
 window.__bugBlasterGame = game;
 window.__beetleGoldHunt = beetleGoldHunt;

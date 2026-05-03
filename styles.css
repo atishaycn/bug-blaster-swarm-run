@@ -433,6 +433,56 @@ canvas {
   line-height: 1;
 }
 
+.gold-shop {
+  position: fixed;
+  left: 148px;
+  top: 18px;
+  z-index: 8;
+  width: 190px;
+  display: none;
+  gap: 8px;
+  border: 1px solid rgba(25, 50, 60, 0.14);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--ink);
+  background: rgba(255, 250, 240, 0.92);
+  box-shadow: 0 14px 34px rgba(75, 54, 32, 0.18);
+  pointer-events: auto;
+}
+
+.gold-shop.is-visible {
+  display: grid;
+}
+
+.shop-kicker {
+  margin: 0;
+  color: var(--accent-dark);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gold-shop h2 {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.gold-shop button {
+  min-height: 32px;
+  justify-self: stretch;
+  padding: 0 10px;
+  color: #2b170d;
+  background: #ffd166;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.gold-shop button:hover {
+  background: #ffe08a;
+}
+
 .beetle-field {
   position: fixed;
   inset: 0;

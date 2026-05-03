@@ -6,6 +6,13 @@ const HEIGHT = 360;
 const GROUND_Y = 304;
 const GRAVITY = 1900;
 const SHOOT_LANE_Y = GROUND_Y - 36;
+const PLAYER_HIT_DAMAGE = 0.5;
+const PLAYER_HIT_INVINCIBILITY = 2.2;
+const LEVEL_MAX_HEALTH_GAIN = 0.25;
+const ENEMY_LEVEL_HEALTH_INTERVAL = 3;
+const ENEMY_TIME_HEALTH_INTERVAL = 45;
+const ENEMY_LEVEL_SPEED_GAIN = 0.012;
+const ENEMY_LEVEL_SPEED_CAP = 0.18;
 const STORAGE_KEY = "bugBlasterRunnerHighScore";
 const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
@@ -60,7 +67,6 @@ const PICKUPS = {
   upgrade: { name: "Level Up", label: "L", color: "#ffd166", asset: "upgradePower" }
 };
 
-const MAX_UPGRADE_LEVEL = 10;
 const LEVEL_BASE_SCORE = 500;
 const CORE_LEVEL_COLORS = [
   { shirt: "#2f8fdd", shot: "#fff4a3", stroke: "#d9731f", glow: "#fff4a3" },
@@ -132,7 +138,7 @@ function rand(min, max) {
 }
 
 function coreLevelColors(level) {
-  return CORE_LEVEL_COLORS[clamp(Math.floor(level) - 1, 0, MAX_UPGRADE_LEVEL - 1)];
+  return CORE_LEVEL_COLORS[Math.max(0, Math.floor(level) - 1) % CORE_LEVEL_COLORS.length];
 }
 
 function rectsOverlap(a, b) {
@@ -145,6 +151,25 @@ function circleRectOverlap(cx, cy, radius, rect) {
   const dx = cx - closestX;
   const dy = cy - closestY;
   return dx * dx + dy * dy <= radius * radius;
+}
+
+function isStompCollision(player, playerBox, targetBox) {
+  const playerBottom = playerBox.y + playerBox.h;
+  const upperTarget = targetBox.y + targetBox.h * 0.45;
+  return player.vy > 120 && playerBottom <= upperTarget;
+}
+
+function isBossAerialStomp(player, playerBox, bossBox) {
+  const playerBottom = playerBox.y + playerBox.h;
+  const playerCenterX = playerBox.x + playerBox.w / 2;
+  const upperBoss = bossBox.y + bossBox.h * 0.45;
+  return (
+    player.vy > 120 &&
+    playerCenterX >= bossBox.x - 8 &&
+    playerCenterX <= bossBox.x + bossBox.w + 8 &&
+    playerBox.y < bossBox.y &&
+    playerBottom <= upperBoss
+  );
 }
 
 class AssetManager {
@@ -285,8 +310,10 @@ class BackgroundLayer {
 class Player {
   constructor() {
     this.x = 94;
-    this.w = 58;
-    this.h = 72;
+    this.baseW = 58;
+    this.baseH = 72;
+    this.w = this.baseW;
+    this.h = this.baseH;
     this.y = GROUND_Y - this.h;
     this.vy = 0;
     this.health = 3;
@@ -300,6 +327,7 @@ class Player {
   }
 
   reset() {
+    this.setPowerScale(1);
     this.y = GROUND_Y - this.h;
     this.vy = 0;
     this.health = 3;
@@ -310,6 +338,16 @@ class Player {
     this.recoil = 0;
     this.airTime = 0;
     this.hoverTime = 0;
+  }
+
+  setPowerScale(level) {
+    const oldBottom = this.y + this.h;
+    const growthScale = 1 + Math.max(0, Math.floor(level) - 1) * 0.01;
+    const screenScaleLimit = Math.min((WIDTH - this.x - 12) / this.baseW, (GROUND_Y - 8) / this.baseH);
+    const scale = Math.min(growthScale, screenScaleLimit);
+    this.w = this.baseW * scale;
+    this.h = this.baseH * scale;
+    this.y = this.grounded ? GROUND_Y - this.h : oldBottom - this.h;
   }
 
   jump(acrobatics = "classic") {
@@ -342,19 +380,33 @@ class Player {
     this.recoil = Math.max(0, this.recoil - dt * 6);
   }
 
-  damage() {
+  damage(amount = PLAYER_HIT_DAMAGE) {
     if (this.invincible > 0) return false;
-    this.health -= 1;
-    this.invincible = 1.15;
+    this.health = Math.max(0, this.health - amount);
+    this.invincible = PLAYER_HIT_INVINCIBILITY;
     return true;
   }
 
+  increaseMaxHealth(amount) {
+    this.maxHealth += amount;
+    this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  bounceFromStomp() {
+    this.vy = -560;
+    this.grounded = false;
+    this.airTime = 0;
+    this.hoverTime = 0;
+  }
+
   barrel() {
-    return { x: this.x + 55, y: this.y + 36 };
+    const scale = this.w / this.baseW;
+    return { x: this.x + 55 * scale, y: this.y + 36 * scale };
   }
 
   hitbox() {
-    return { x: this.x + 10, y: this.y + 8, w: this.w - 16, h: this.h - 8 };
+    const scale = this.w / this.baseW;
+    return { x: this.x + 10 * scale, y: this.y + 8 * scale, w: this.w - 16 * scale, h: this.h - 8 * scale };
   }
 
   draw(ctx, assets, coreLevel = 0, customization = defaultAdvancedProgress().equipped) {
@@ -742,6 +794,7 @@ class Game {
     this.spawnTimer = 0.55;
     this.powerTimer = 7;
     this.upgradeTimer = 28;
+    this.upgradeTimerMax = this.upgradeTimer;
     this.fireTimer = 0.04;
     this.droneFireTimer = 0.3;
     this.laserTick = 0;
@@ -1218,19 +1271,19 @@ class Game {
   }
 
   projectileDamage(type) {
-    const bonus = this.powerBonusLevel() >= 4 ? 1 : 0;
-    if (type === "rocket") return bonus ? ROCKET.upgradedDamage : ROCKET.baseDamage;
-    return 1 + bonus;
+    const powerBonus = this.powerBonusLevel();
+    if (type === "rocket") return ROCKET.baseDamage + Math.floor(powerBonus / 3);
+    return 1 + Math.floor(powerBonus / 4);
   }
 
   projectilePierce(type) {
     const powerBonus = this.powerBonusLevel();
-    if (type === "pierce") return Math.min(5, 3 + Math.floor(powerBonus / 4));
-    return powerBonus >= 6 ? 2 : 1;
+    if (type === "pierce") return 3 + Math.floor(powerBonus / 3);
+    return 1 + Math.floor(powerBonus / 8);
   }
 
   dronePierce() {
-    return this.powerBonusLevel() >= 7 ? 2 : 1;
+    return 1 + Math.floor(this.powerBonusLevel() / 7);
   }
 
   powerBonusLevel() {
@@ -1241,8 +1294,7 @@ class Game {
     const base = WEAPONS[type].duration;
     const powerBonus = this.powerBonusLevel();
     const perLevel = type === "laser" ? 0.12 : 0.35;
-    const maxExtra = type === "laser" ? 1.2 : 3.5;
-    return base + Math.min(maxExtra, powerBonus * perLevel);
+    return base + powerBonus * perLevel;
   }
 
   fireBullet(vy = 0, type = "normal", damage = 1, pierce = 1, speed = 760) {
@@ -1261,7 +1313,7 @@ class Game {
     const targets = [...this.enemies];
     if (this.boss) targets.push(this.boss);
     targets.forEach((target) => {
-      if (this.canDamageTarget(target) && rectsOverlap(beam, target.hitbox())) {
+      if (this.canLaserDamageTarget(target, beam)) {
         target.damage(1);
         this.spawnHit(target.x + target.w * 0.45, target.y + target.h * 0.5, "#f43f5e");
       }
@@ -1281,8 +1333,9 @@ class Game {
       this.spawnPowerUp();
     }
     this.upgradeTimer -= dt;
-    if (this.upgradeTimer <= 0 && this.upgradeLevel < MAX_UPGRADE_LEVEL) {
-      this.upgradeTimer = rand(38, 50);
+    if (this.upgradeTimer <= 0) {
+      this.upgradeTimerMax = rand(38, 50);
+      this.upgradeTimer = this.upgradeTimerMax;
       this.spawnPowerUp("upgrade");
     }
     if (!this.boss && this.elapsed >= this.nextBossTime) {
@@ -1328,11 +1381,33 @@ class Game {
 
   spawnEnemy(type, x = WIDTH + 50, y) {
     if (x < this.player.x + 260) x = this.player.x + 260;
-    this.enemies.push(new Enemy(type, x, y));
+    const enemy = new Enemy(type, x, y);
+    this.scaleEnemyForRun(enemy);
+    this.enemies.push(enemy);
+  }
+
+  scaleEnemyForRun(enemy) {
+    const levelHealth = Math.floor(this.powerBonusLevel() / ENEMY_LEVEL_HEALTH_INTERVAL);
+    const timeHealth = Math.floor(Math.max(0, this.elapsed - 60) / ENEMY_TIME_HEALTH_INTERVAL);
+    const healthBonus = Math.max(0, levelHealth + timeHealth);
+    if (healthBonus > 0) {
+      const miniPenalty = enemy.type === "mini" ? Math.floor(healthBonus / 2) : healthBonus;
+      enemy.maxHealth += miniPenalty;
+      enemy.health = enemy.maxHealth;
+      enemy.score += miniPenalty * 8;
+    }
+    const speedScale = 1 + Math.min(ENEMY_LEVEL_SPEED_CAP, this.powerBonusLevel() * ENEMY_LEVEL_SPEED_GAIN);
+    enemy.speed *= speedScale;
   }
 
   canDamageTarget(target) {
-    return target.x + target.w * 0.5 < WIDTH - 8;
+    return target.x + target.w < WIDTH - 12;
+  }
+
+  canLaserDamageTarget(target, beam) {
+    const hitbox = target.hitbox();
+    const visible = hitbox.x < WIDTH && hitbox.x + hitbox.w > 0;
+    return visible && rectsOverlap(beam, hitbox);
   }
 
   collectWeapon(type) {
@@ -1372,7 +1447,7 @@ class Game {
 
   spawnPowerUp(forceType) {
     const keys = ["rapid", "spread", "pierce", "laser", "rocket", "drone", "health", "maxHealth"];
-    if (this.elapsed > 40 && this.upgradeLevel < MAX_UPGRADE_LEVEL) keys.push("upgrade");
+    if (this.elapsed > 40) keys.push("upgrade");
     const type = forceType || keys[Math.floor(Math.random() * keys.length)];
     const y = rand(142, 208);
     this.powerUps.push(new PowerUp(type, WIDTH + 48, y));
@@ -1391,12 +1466,14 @@ class Game {
           pickupResult = `Restored ${restore} heart${restore === 1 ? "" : "s"}.`;
         } else if (power.type === "maxHealth") {
           const boost = this.powerBonusLevel() >= 8 ? 2 : 1;
-          this.player.maxHealth += boost;
+          this.player.increaseMaxHealth(boost);
           this.player.health = this.player.maxHealth;
           pickupResult = `Max health +${boost}. Hearts refilled.`;
         } else if (power.type === "upgrade") {
-          this.upgradeLevel = Math.min(MAX_UPGRADE_LEVEL, this.upgradeLevel + 1);
-          pickupResult = `Core blaster level ${this.upgradeLevel}.`;
+          this.upgradeLevel += 1;
+          this.player.setPowerScale(this.upgradeLevel);
+          this.player.increaseMaxHealth(LEVEL_MAX_HEALTH_GAIN);
+          pickupResult = `Core blaster level ${this.upgradeLevel}. Max health up.`;
         } else {
           pickupResult = this.collectWeapon(power.type);
         }
@@ -1406,15 +1483,37 @@ class Game {
       }
     });
     this.enemies.forEach((enemy) => {
-      if (!enemy.dead && rectsOverlap(playerBox, enemy.hitbox()) && this.player.damage()) {
+      if (enemy.dead) return;
+      const enemyBox = enemy.hitbox();
+      if (!rectsOverlap(playerBox, enemyBox)) return;
+      if (isStompCollision(this.player, playerBox, enemyBox)) {
+        enemy.damage(enemy.health);
+        this.player.bounceFromStomp();
+        this.spawnHit(enemy.x + enemy.w / 2, enemy.y + 4, "#ffd166");
+        this.audio.beep("pop");
+      } else if (this.player.damage()) {
         enemy.damage(1);
         this.spawnHit(this.player.x + 35, this.player.y + 35, "#ff5f57");
         this.audio.beep("damage");
       }
     });
-    if (this.boss && rectsOverlap(playerBox, this.boss.hitbox()) && this.player.damage()) {
-      this.spawnHit(this.player.x + 35, this.player.y + 35, "#ff5f57");
-      this.audio.beep("damage");
+    if (this.boss) {
+      const bossBox = this.boss.hitbox();
+      const touchingBoss = rectsOverlap(playerBox, bossBox);
+      const stompingBoss = touchingBoss
+        ? isStompCollision(this.player, playerBox, bossBox)
+        : isBossAerialStomp(this.player, playerBox, bossBox);
+      if (stompingBoss) {
+        this.boss.damage(3);
+        this.player.bounceFromStomp();
+        this.spawnHit(this.player.x + 35, bossBox.y, "#ffd166");
+        this.audio.beep("hit");
+      } else if (touchingBoss) {
+        if (this.player.damage()) {
+          this.spawnHit(this.player.x + 35, this.player.y + 35, "#ff5f57");
+          this.audio.beep("damage");
+        }
+      }
     }
     this.bullets.forEach((bullet) => {
       if (bullet.dead) return;
@@ -1699,9 +1798,14 @@ class Game {
     ctx.fill();
     ctx.fillStyle = "#19323c";
     ctx.font = "800 18px Avenir, sans-serif";
-    const fullHearts = "♥".repeat(Math.max(0, this.player.health));
-    const emptyHearts = "♡".repeat(Math.max(0, this.player.maxHealth - Math.max(0, this.player.health)));
-    ctx.fillText(`Health ${fullHearts}${emptyHearts}`, 30, 38);
+    const healthRatio = clamp(this.player.health / this.player.maxHealth, 0, 1);
+    ctx.fillText(`Health ${Math.round(healthRatio * 100)}%`, 30, 38);
+    ctx.fillStyle = "rgba(25, 50, 60, 0.18)";
+    roundRect(ctx, 180, 26, 132, 10, 5);
+    ctx.fill();
+    ctx.fillStyle = healthRatio > 0.35 ? "#47c26b" : "#ff5f57";
+    roundRect(ctx, 180, 26, 132 * healthRatio, 10, 5);
+    ctx.fill();
     ctx.font = "800 16px Avenir, sans-serif";
     ctx.fillText(`Score ${score}   High ${this.highScore}`, 30, 60);
     this.drawLevelBar(ctx, score);
@@ -1729,15 +1833,19 @@ class Game {
       ctx.fillText(text, WIDTH - textW, 40);
     }
     if (this.upgradeLevel) {
+      const levelProgress = clamp(1 - this.upgradeTimer / Math.max(1, this.upgradeTimerMax), 0, 1);
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";
-      roundRect(ctx, WIDTH - 160, 62, 144, 26, 8);
+      roundRect(ctx, WIDTH - 182, 62, 166, 30, 8);
       ctx.fill();
-      ctx.fillStyle = "#ffd166";
-      roundRect(ctx, WIDTH - 88, 78, 66 * (this.upgradeLevel / MAX_UPGRADE_LEVEL), 5, 3);
+      ctx.fillStyle = "rgba(255, 244, 216, 0.2)";
+      roundRect(ctx, WIDTH - 116, 80, 86, 6, 3);
+      ctx.fill();
+      ctx.fillStyle = coreLevelColors(this.upgradeLevel).shot;
+      roundRect(ctx, WIDTH - 116, 80, 86 * levelProgress, 6, 3);
       ctx.fill();
       ctx.fillStyle = "#fff4d8";
       ctx.font = "800 13px Avenir, sans-serif";
-      ctx.fillText(`Level ${this.upgradeLevel}/${MAX_UPGRADE_LEVEL}`, WIDTH - 142, 80);
+      ctx.fillText(`Level ${this.upgradeLevel}`, WIDTH - 164, 80);
     }
     if (this.audio.muted) {
       ctx.fillStyle = "rgba(25, 50, 60, 0.88)";

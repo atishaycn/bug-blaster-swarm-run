@@ -404,7 +404,7 @@ canvas {
 .gold-meter {
   position: fixed;
   left: 18px;
-  top: 18px;
+  bottom: 18px;
   z-index: 8;
   min-width: 112px;
   display: grid;
@@ -436,7 +436,7 @@ canvas {
 .gold-shop {
   position: fixed;
   left: 148px;
-  top: 18px;
+  bottom: 18px;
   z-index: 8;
   width: 190px;
   display: none;
@@ -532,6 +532,27 @@ canvas {
   height: 22px;
   display: block;
   pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .gold-meter {
+    top: auto;
+    bottom: calc(112px + env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    min-width: 82px;
+    padding: 8px 10px;
+  }
+
+  .gold-meter strong {
+    font-size: 1.35rem;
+  }
+
+  .gold-shop {
+    top: auto;
+    bottom: calc(112px + env(safe-area-inset-bottom));
+    left: calc(max(10px, env(safe-area-inset-left)) + 94px);
+    width: min(176px, calc(100vw - 116px));
+  }
 }
 
 @keyframes beetle-pop {

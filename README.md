@@ -1,4 +1,4 @@
-# Bug Blaster: Swarm Run
+# Eduardo's Game
 
 A lightweight browser-based side-scrolling survival shooter inspired by the Chrome T-Rex runner, rebuilt around automatic shooting, enemy swarms, bosses, and weapon power-ups instead of obstacles.
 

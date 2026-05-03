@@ -92,7 +92,7 @@ const CORE_LEVEL_COLORS = [
 ];
 
 const OUTFITS = {
-  classic: { name: "Classic Runner", shirt: null, accent: "#ffd166", note: "Original Bug Blaster look." },
+  classic: { name: "Classic Runner", shirt: null, accent: "#ffd166", note: "Original Eduardo's Game look." },
   sunset: { name: "Sunset Jacket", shirt: "#ff6b35", accent: "#ffe866", note: "Bright orange outfit tint." },
   mint: { name: "Mint Scout", shirt: "#5fc8a6", accent: "#ecfeff", note: "Cool green outfit tint." },
   violet: { name: "Violet Volt", shirt: "#8b5cf6", accent: "#f5d0fe", note: "Electric purple outfit tint." },
@@ -1397,7 +1397,7 @@ class Game {
       if (this.state === "fakeout") this.updateFakeout(dt);
       this.draw();
     } catch (error) {
-      console.error("Bug Blaster frame failed", error);
+      console.error("Eduardo's Game frame failed", error);
     }
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -2306,7 +2306,7 @@ class Game {
     ctx.fillStyle = "rgba(18, 32, 38, 0.64)";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     this.drawLeaderboardPanel(ctx, 90, 34, 780, 302, {
-      title: "BUG BLASTER",
+      title: "EDUARDO'S GAME",
       subtitle: "GLOBAL TOP 10  /  YOUR BEST 10",
       prompt: "PRESS ENTER OR TAP TO START"
     });

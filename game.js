@@ -33,7 +33,7 @@ const ASSET_PATHS = {
   tankBeetle: "assets/tank-beetle.svg",
   zigzagBug: "assets/zigzag-bug.svg",
   miniSwarm: "assets/mini-swarm.svg",
-  giantBeetleBoss: "assets/giant-beetle-boss.svg",
+  volkswagenBeetleBoss: "assets/volkswagen-beetle-boss.svg",
   waspQueenBoss: "assets/wasp-queen-boss.svg",
   cloud: "assets/cloud.svg",
   tree: "assets/tree.svg",
@@ -128,6 +128,13 @@ const ROCKET = {
   knockback: 132
 };
 const BOSS_HEALTH_MULTIPLIER = 0.75;
+const GASOLINE_BLEED_STEP = 0.1;
+const GASOLINE_HONK_STEP = 0.25;
+const GASOLINE_POOL_RADIUS = 118;
+const GASOLINE_IGNITE_DAMAGE_RATIO = 0.3;
+const GASOLINE_IGNITE_TICK = 2;
+const GASOLINE_POOL_LIFE = 12;
+const GASOLINE_IGNITED_LIFE = 8;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -623,7 +630,9 @@ class Boss {
     this.dead = false;
     this.entered = false;
     this.hitFlash = 0;
-    this.asset = kind === "beetle" ? "giantBeetleBoss" : "waspQueenBoss";
+    this.nextHonkRatio = 1 - GASOLINE_HONK_STEP;
+    this.nextBleedRatio = 1 - GASOLINE_BLEED_STEP;
+    this.asset = kind === "beetle" ? "volkswagenBeetleBoss" : "waspQueenBoss";
   }
 
   update(dt, game) {
@@ -671,6 +680,66 @@ class Boss {
     ctx.drawImage(assets.get(this.asset), this.x, this.y, this.w, this.h);
     ctx.restore();
     if (DEBUG) drawRect(ctx, this.hitbox(), "#f00");
+  }
+}
+
+class GasolinePool {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = GASOLINE_POOL_RADIUS;
+    this.life = GASOLINE_POOL_LIFE;
+    this.ignited = false;
+    this.damageTimer = 0;
+  }
+
+  update(dt, worldSpeed) {
+    this.life -= dt;
+    this.x -= worldSpeed * 0.16 * dt;
+    if (this.ignited) this.damageTimer -= dt;
+  }
+
+  ignite() {
+    if (this.ignited) return false;
+    this.ignited = true;
+    this.life = Math.min(this.life, GASOLINE_IGNITED_LIFE);
+    this.damageTimer = 0;
+    return true;
+  }
+
+  hitbox() {
+    return { x: this.x - this.radius, y: this.y - 20, w: this.radius * 2, h: 42 };
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = clamp(this.life / GASOLINE_POOL_LIFE, 0, 0.9);
+    const gradient = ctx.createRadialGradient(this.x, this.y, 8, this.x, this.y, this.radius);
+    if (this.ignited) {
+      gradient.addColorStop(0, "rgba(255, 220, 74, 0.9)");
+      gradient.addColorStop(0.45, "rgba(249, 115, 22, 0.68)");
+      gradient.addColorStop(1, "rgba(143, 46, 18, 0)");
+    } else {
+      gradient.addColorStop(0, "rgba(56, 96, 42, 0.78)");
+      gradient.addColorStop(0.5, "rgba(38, 62, 35, 0.52)");
+      gradient.addColorStop(1, "rgba(38, 62, 35, 0)");
+    }
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y, this.radius, 24, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (this.ignited) {
+      ctx.fillStyle = "rgba(255, 244, 163, 0.9)";
+      for (let i = 0; i < 5; i++) {
+        const px = this.x - 64 + i * 32;
+        ctx.beginPath();
+        ctx.moveTo(px, this.y - 8);
+        ctx.quadraticCurveTo(px + 8, this.y - 34 - (i % 2) * 8, px + 17, this.y - 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 }
 
@@ -786,6 +855,7 @@ class Game {
     this.bullets = [];
     this.enemies = [];
     this.powerUps = [];
+    this.gasolinePools = [];
     this.particles = [];
     this.boss = null;
     this.score = 0;
@@ -1200,6 +1270,8 @@ class Game {
     this.bullets.forEach((b) => b.update(dt));
     this.enemies.forEach((e) => e.update(dt, this.worldSpeed));
     if (this.boss) this.boss.update(dt, this);
+    this.gasolinePools.forEach((pool) => pool.update(dt, this.worldSpeed));
+    this.applyGasolineDamage();
     this.powerUps.forEach((p) => p.update(dt, this.worldSpeed));
     this.particles.forEach((p) => p.update(dt));
     this.handleCollisions();
@@ -1314,7 +1386,8 @@ class Game {
     if (this.boss) targets.push(this.boss);
     targets.forEach((target) => {
       if (this.canLaserDamageTarget(target, beam)) {
-        target.damage(1);
+        if (target === this.boss) this.damageBoss(1, target.x + target.w * 0.45, target.y + target.h * 0.5);
+        else target.damage(1);
         this.spawnHit(target.x + target.w * 0.45, target.y + target.h * 0.5, "#f43f5e");
       }
     });
@@ -1445,6 +1518,68 @@ class Game {
     this.audio.beep("boss");
   }
 
+  damageBoss(amount, sourceX = this.boss?.x || WIDTH, sourceY = this.boss?.y || GROUND_Y) {
+    if (!this.boss) return;
+    const boss = this.boss;
+    const beforeRatio = boss.health / boss.maxHealth;
+    boss.damage(amount);
+    const afterRatio = Math.max(0, boss.health / boss.maxHealth);
+    if (boss.kind !== "beetle") return;
+    while (boss.nextHonkRatio > 0 && beforeRatio > boss.nextHonkRatio && afterRatio <= boss.nextHonkRatio) {
+      this.honkVolkswagenBoss(boss);
+      boss.nextHonkRatio -= GASOLINE_HONK_STEP;
+    }
+    while (boss.nextBleedRatio > 0 && beforeRatio > boss.nextBleedRatio && afterRatio <= boss.nextBleedRatio) {
+      this.bleedGasoline(boss, sourceX, sourceY);
+      boss.nextBleedRatio -= GASOLINE_BLEED_STEP;
+    }
+  }
+
+  honkVolkswagenBoss(boss) {
+    this.audio.beep("boss");
+    this.showPowerToast("rocket", "HONK! The beetle is mad.");
+    for (let i = 0; i < 18; i++) {
+      this.spawnParticle(boss.x + 18, boss.y + boss.h * 0.52, "#ffd166", rand(2, 6), rand(-220, -80), rand(-170, -40), 0.42);
+    }
+  }
+
+  bleedGasoline(boss, sourceX, sourceY) {
+    const x = clamp(sourceX || boss.x + boss.w * 0.45, boss.x + 20, boss.x + boss.w - 20);
+    const y = GROUND_Y - 8;
+    const pool = new GasolinePool(x, y);
+    this.gasolinePools.push(pool);
+    this.audio.beep("damage");
+    for (let i = 0; i < 24; i++) {
+      this.spawnParticle(x, Math.min(sourceY || boss.y + boss.h * 0.7, y), "#385f2a", rand(2, 6), rand(-190, 120), rand(-210, 20), 0.62);
+    }
+  }
+
+  igniteGasolinePool(pool, x = pool.x, y = pool.y) {
+    if (!pool.ignite()) return;
+    this.audio.beep("grave");
+    for (let i = 0; i < 30; i++) {
+      this.spawnParticle(x, y, i % 2 ? "#f97316" : "#ffd166", rand(3, 8), rand(-260, 260), rand(-260, 40), 0.68);
+    }
+  }
+
+  applyGasolineDamage() {
+    this.gasolinePools.forEach((pool) => {
+      if (!pool.ignited || pool.damageTimer > 0) return;
+      pool.damageTimer = GASOLINE_IGNITE_TICK;
+      this.enemies.forEach((enemy) => {
+        if (enemy.dead) return;
+        const box = enemy.hitbox();
+        const centerX = box.x + box.w / 2;
+        const centerY = box.y + box.h / 2;
+        const dx = centerX - pool.x;
+        const dy = centerY - pool.y;
+        if (dx * dx + dy * dy > pool.radius * pool.radius) return;
+        enemy.damage(Math.max(1, enemy.maxHealth * GASOLINE_IGNITE_DAMAGE_RATIO));
+        this.spawnHit(centerX, centerY, "#f97316");
+      });
+    });
+  }
+
   spawnPowerUp(forceType) {
     const keys = ["rapid", "spread", "pierce", "laser", "rocket", "drone", "health", "maxHealth"];
     if (this.elapsed > 40) keys.push("upgrade");
@@ -1504,7 +1639,7 @@ class Game {
         ? isStompCollision(this.player, playerBox, bossBox)
         : isBossAerialStomp(this.player, playerBox, bossBox);
       if (stompingBoss) {
-        this.boss.damage(3);
+        this.damageBoss(3, this.player.x + this.player.w / 2, bossBox.y);
         this.player.bounceFromStomp();
         this.spawnHit(this.player.x + 35, bossBox.y, "#ffd166");
         this.audio.beep("hit");
@@ -1518,6 +1653,15 @@ class Game {
     this.bullets.forEach((bullet) => {
       if (bullet.dead) return;
       let hitSomething = false;
+      this.gasolinePools.forEach((pool) => {
+        if (pool.ignited || bullet.dead) return;
+        if (circleRectOverlap(bullet.x, bullet.y, bullet.radius + 3, pool.hitbox())) {
+          this.igniteGasolinePool(pool, bullet.x, bullet.y);
+          hitSomething = true;
+          if (bullet.type !== "rocket" && bullet.type !== "pierce") bullet.dead = true;
+        }
+      });
+      if (bullet.dead) return;
       this.enemies.forEach((enemy) => {
         if (enemy.dead || bullet.hitIds.has(enemy.id)) return;
         if (this.canDamageTarget(enemy) && circleRectOverlap(bullet.x, bullet.y, bullet.radius + 2, enemy.hitbox())) {
@@ -1531,7 +1675,7 @@ class Game {
         }
       });
       if (!bullet.dead && this.boss && this.canDamageTarget(this.boss) && circleRectOverlap(bullet.x, bullet.y, bullet.radius + 2, this.boss.hitbox())) {
-        this.boss.damage(bullet.damage);
+        this.damageBoss(bullet.damage, bullet.x, bullet.y);
         hitSomething = true;
         this.spawnHit(bullet.x, bullet.y, bullet.type === "rocket" ? "#f97316" : "#ffcc4d");
         if (bullet.type === "rocket") this.explode(bullet.x, bullet.y, ROCKET.bossSplashRadius, ROCKET.bossSplashDamage);
@@ -1566,6 +1710,7 @@ class Game {
     this.enemies = [];
     this.powerUps = [];
     this.bullets = [];
+    this.gasolinePools = [];
     this.nextBossTime = this.elapsed + 34;
     for (let i = 0; i < 24; i++) this.spawnParticle(rand(500, 780), GROUND_Y - rand(6, 40), "#2d2438", rand(3, 8), rand(-70, 70), rand(-170, -20), 0.9);
     this.updateButtons();
@@ -1579,7 +1724,7 @@ class Game {
       }
     });
     if (this.boss && this.canDamageTarget(this.boss) && circleRectOverlap(x, y, radius, this.boss.hitbox())) {
-      this.boss.damage(damage);
+      this.damageBoss(damage, x, y);
       this.boss.knockbackFrom(x, ROCKET.knockback);
     }
     for (let i = 0; i < 32; i++) this.spawnParticle(x, y, "#f97316", rand(3, 8), rand(-340, 340), rand(-300, 110), 0.58);
@@ -1597,6 +1742,7 @@ class Game {
     this.bullets = this.bullets.filter((b) => !b.dead).slice(-95);
     this.enemies = this.enemies.filter((e) => !e.dead).slice(-80);
     this.powerUps = this.powerUps.filter((p) => !p.dead).slice(-8);
+    this.gasolinePools = this.gasolinePools.filter((p) => p.life > 0).slice(-12);
     this.particles = this.particles.filter((p) => p.life > 0).slice(-160);
   }
 
@@ -1632,6 +1778,7 @@ class Game {
     this.drawBackground(ctx);
     this.layers.forEach((layer) => layer.draw(ctx, this.assets));
     this.drawGround(ctx);
+    this.gasolinePools.forEach((p) => p.draw(ctx));
     this.powerUps.forEach((p) => p.draw(ctx, this.assets));
     this.bullets.forEach((b) => b.draw(ctx));
     if (this.activeWeapon === "laser" && this.state === "playing") this.drawLaser(ctx);
@@ -1750,7 +1897,7 @@ class Game {
     ctx.textAlign = "center";
     ctx.font = "900 22px Avenir, sans-serif";
     ctx.fillStyle = "#ecfeff";
-    const text = this.fakeoutTimer < 1.7 ? "That beetle was only guarding the graveyard." : this.fakeoutTimer < 3 ? "The runner falls in..." : "Night falls. The swarm rises.";
+    const text = this.fakeoutTimer < 1.7 ? "That Beetle was only guarding the graveyard." : this.fakeoutTimer < 3 ? "The runner falls in..." : "Night falls. The swarm rises.";
     ctx.fillText(text, WIDTH / 2, 118);
     ctx.restore();
   }
@@ -1908,7 +2055,7 @@ class Game {
     ctx.fillStyle = "#ffffff";
     ctx.textBaseline = "middle";
     ctx.font = "900 13px ui-rounded, system-ui";
-    ctx.fillText(this.boss.kind === "beetle" ? "Giant Beetle Boss" : "Wasp Queen Boss", x + 12, y + h / 2);
+    ctx.fillText(this.boss.kind === "beetle" ? "VW Beetle Boss" : "Wasp Queen Boss", x + 12, y + h / 2);
     ctx.fillStyle = "rgba(8,14,28,0.6)";
     ctx.fillRect(x + labelW, y + 9, w - labelW - 14, 16);
     ctx.fillStyle = "#ff5f57";

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 116">
+  <defs>
+    <linearGradient id="body" x1="24" x2="142" y1="30" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd765"/>
+      <stop offset=".56" stop-color="#f6a13d"/>
+      <stop offset="1" stop-color="#c94b25"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="56" x2="111" y1="22" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d9fbff"/>
+      <stop offset="1" stop-color="#6bd7f0"/>
+    </linearGradient>
+  </defs>
+  <path fill="#10243b" d="M21 74c4-25 21-46 47-55 31-10 67 4 82 37 11 2 18 10 18 22 0 16-12 25-30 25H44c-20 0-30-10-23-29Z"/>
+  <path fill="url(#body)" d="M25 73c6-29 30-50 62-50 28 0 50 16 61 48 9 1 15 7 15 17 0 11-9 17-25 17H46c-17 0-27-10-21-32Z"/>
+  <path fill="#fff4a3" d="M20 82c7-4 15-5 24-2v10c-11 1-19-2-24-8Z"/>
+  <path fill="#ffefb0" d="M142 82c10-4 18-3 25 3-5 6-13 8-25 6Z"/>
+  <path fill="url(#glass)" stroke="#10243b" stroke-width="5" d="M55 58c3-19 17-30 34-30 16 0 29 11 36 30H55Z"/>
+  <path fill="#10243b" d="M88 28h7v31h-7z"/>
+  <path fill="#f47c32" d="M33 68c18-10 48-14 88-12 12 1 22 5 28 12-33-8-78-8-116 0Z" opacity=".8"/>
+  <circle cx="55" cy="92" r="18" fill="#10243b"/>
+  <circle cx="55" cy="92" r="9" fill="#8ca3b8"/>
+  <circle cx="132" cy="92" r="18" fill="#10243b"/>
+  <circle cx="132" cy="92" r="9" fill="#8ca3b8"/>
+  <path fill="none" stroke="#10243b" stroke-linecap="round" stroke-width="5" d="M60 29 47 7m49 20 13-21"/>
+  <circle cx="44" cy="7" r="5" fill="#ffd765" stroke="#10243b" stroke-width="3"/>
+  <circle cx="112" cy="7" r="5" fill="#ffd765" stroke="#10243b" stroke-width="3"/>
+  <path fill="#19323c" d="M28 58c8 2 12 6 14 13-9 0-16-3-21-9 1-3 3-4 7-4Z"/>
+  <path fill="#3d2418" d="M141 73c11 4 18 10 21 18-9-3-19-6-30-8 1-5 4-8 9-10Z" opacity=".7"/>
+</svg>

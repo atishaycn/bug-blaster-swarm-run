@@ -52,7 +52,7 @@ if (!/ADVANCED_PROGRESS_KEY/.test(source) || !/function buildLootboxChoices/.tes
   throw new Error("Advanced mode must persist customization progress and provide lootbox choices.");
 }
 
-if (!/ctx\.textBaseline = "middle";[\s\S]*Giant Beetle Boss[\s\S]*labelW/.test(source)) {
+if (!/ctx\.textBaseline = "middle";[\s\S]*VW Beetle Boss[\s\S]*labelW/.test(source)) {
   throw new Error("Boss bar label should be vertically centered and separated from the health meter.");
 }
 

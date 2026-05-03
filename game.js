@@ -18,6 +18,7 @@ const LEADERBOARD_KEY = "bugBlasterRunnerLeaderboard";
 const PERSONAL_SCORES_KEY = "bugBlasterRunnerPersonalScores";
 const ONBOARDING_KEY = "bugBlasterRunnerOnboardingSeen";
 const ADVANCED_PROGRESS_KEY = "bugBlasterAdvancedProgress";
+const GOLD_KEY = "bugBlasterGold";
 const SCORE_API = "/api/scores";
 const PRODUCTION_SCORE_API = "https://game.phunnysunny.com/api/scores";
 const LEADERBOARD_LIMIT = 10;
@@ -1029,40 +1030,9 @@ class Game {
         this.jumpHeld = false;
       }
     });
-    window.addEventListener("pointerdown", (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      const target = event.target;
-      if (target.closest?.("button, input, textarea, select, form, a")) return;
-      event.preventDefault();
-      if (this.onboardingVisible) {
-        this.dismissOnboarding();
-        return;
-      }
-      if (this.pendingEntry) {
-        this.focusInitialsInput();
-        return;
-      }
-      if (this.state === "levelup") return;
-      this.jumpHeld = true;
-      this.actionJump();
-    }, { passive: false });
-    window.addEventListener("pointerup", () => {
-      this.jumpHeld = false;
-    });
-    window.addEventListener("pointercancel", () => {
-      this.jumpHeld = false;
-    });
     this.canvas.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (this.onboardingVisible) {
-        this.dismissOnboarding();
-        return;
-      }
-      if (!this.pendingEntry && this.state !== "levelup") {
-        this.jumpHeld = true;
-        this.actionJump();
-      }
     }, { passive: false });
     this.restartButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -2574,6 +2544,68 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+class BeetleGoldHunt {
+  constructor(field, countEl) {
+    this.field = field;
+    this.countEl = countEl;
+    this.gold = Math.max(0, Math.floor(Number(localStorage.getItem(GOLD_KEY)) || 0));
+    this.maxBeetles = 4;
+    this.spawnTimer = 0;
+    this.beetles = new Set();
+    this.updateGold();
+    this.scheduleNext();
+  }
+
+  scheduleNext() {
+    window.clearTimeout(this.spawnTimer);
+    this.spawnTimer = window.setTimeout(() => {
+      this.spawnBeetle();
+      this.scheduleNext();
+    }, rand(2600, 5600));
+  }
+
+  spawnBeetle() {
+    if (!this.field || this.beetles.size >= this.maxBeetles) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "bonus-beetle";
+    button.setAttribute("aria-label", "Collect beetle for 1 gold");
+    button.style.left = `${rand(8, 92)}%`;
+    button.style.top = `${rand(24, 76)}%`;
+
+    const img = document.createElement("img");
+    img.src = ASSET_PATHS.tankBeetle;
+    img.alt = "";
+    button.append(img);
+
+    const collect = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this.beetles.has(button)) return;
+      this.gold += 1;
+      localStorage.setItem(GOLD_KEY, String(this.gold));
+      this.updateGold();
+      this.removeBeetle(button);
+    };
+    button.addEventListener("click", collect);
+    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+    button.expireTimer = window.setTimeout(() => this.removeBeetle(button), rand(7000, 10500));
+
+    this.beetles.add(button);
+    this.field.append(button);
+  }
+
+  removeBeetle(button) {
+    if (!this.beetles.delete(button)) return;
+    window.clearTimeout(button.expireTimer);
+    button.remove();
+  }
+
+  updateGold() {
+    if (this.countEl) this.countEl.textContent = String(this.gold);
+  }
+}
+
 function tracePlayerShirt(ctx, x, y, w, h) {
   const sx = w / 96;
   const sy = h / 96;
@@ -2635,4 +2667,6 @@ const canvas = document.getElementById("gameCanvas");
 const muteButton = document.getElementById("muteButton");
 const restartButton = document.getElementById("restartButton");
 const game = new Game(canvas, muteButton, restartButton);
+const beetleGoldHunt = new BeetleGoldHunt(document.getElementById("beetleField"), document.getElementById("goldCount"));
 window.__bugBlasterGame = game;
+window.__beetleGoldHunt = beetleGoldHunt;

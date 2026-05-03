@@ -12,7 +12,8 @@ This repo follows the global OpenClaw/Codex working model, with the project-spec
 - Treat this as the default/only project for Telegram work until bossman changes the standing instruction.
 - GitHub CLI and Vercel CLI are expected to be available and authenticated before project work begins.
 - Production URL: `https://eduardosgame.phunnysunny.com/` — always deploy/verify production here.
-- Vercel production deployment aliases have included `https://game.phunnysunny.com`, `https://game2-ashen-theta.vercel.app`, and `https://bug-blaster-swarm-run-atishay-jains-projects-b62c3561.vercel.app`; bossman-designated production is `https://eduardosgame.phunnysunny.com/`.
+- Vercel production project: `game2-advanced` (`prj_nOmVtqpDsWbUwPvE4lNRmKaloRRT`). Ensure `.vercel/project.json` is linked to this project before deploying.
+- Vercel production aliases for the bossman-designated project include `https://eduardosgame.phunnysunny.com/`, `https://game2-advanced.vercel.app`, and `https://game2-advanced-atishay-jains-projects-b62c3561.vercel.app`. Older aliases such as `https://game2-ashen-theta.vercel.app` may point at other deployments and are not the deployment target unless bossman changes this.
 
 ## Start-of-Work Checklist
 

@@ -198,6 +198,18 @@ class AssetManager {
   get(key) {
     return this.images[key];
   }
+
+  draw(ctx, key, ...args) {
+    const img = this.get(key);
+    if (!img || !img.complete || img.naturalWidth <= 0) return false;
+    try {
+      ctx.drawImage(img, ...args);
+      return true;
+    } catch (error) {
+      console.warn("Skipping asset draw", key, error);
+      return false;
+    }
+  }
 }
 
 class AudioManager {
@@ -308,13 +320,12 @@ class BackgroundLayer {
   }
 
   draw(ctx, assets) {
-    const img = assets.get(this.imageKey);
     ctx.save();
     ctx.globalAlpha = this.alpha;
     for (let x = this.offset - this.spacing; x < WIDTH + this.spacing; x += this.spacing) {
       const w = this.widthHint * this.scale;
       const h = this.heightHint * this.scale;
-      ctx.drawImage(img, x, this.y, w, h);
+      assets.draw(ctx, this.imageKey, x, this.y, w, h);
     }
     ctx.restore();
   }
@@ -447,9 +458,9 @@ class Player {
     if (rotation) {
       ctx.translate(drawX + this.w / 2, this.y + this.h / 2);
       ctx.rotate(rotation);
-      ctx.drawImage(assets.get("player"), -this.w / 2, -this.h / 2, this.w, this.h);
+      assets.draw(ctx, "player", -this.w / 2, -this.h / 2, this.w, this.h);
     } else {
-      ctx.drawImage(assets.get("player"), drawX, this.y, this.w, this.h);
+      assets.draw(ctx, "player", drawX, this.y, this.w, this.h);
     }
     const colors = coreLevelColors(coreLevel);
     const outfit = OUTFITS[customization.outfit] || OUTFITS.classic;
@@ -613,7 +624,7 @@ class Enemy {
     const wingPulse = this.type === "flying" || this.type === "mini" ? Math.sin(this.time * 18) * 0.04 + 1 : 1;
     ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
     ctx.scale(1, wingPulse);
-    ctx.drawImage(assets.get(this.asset), -this.w / 2, -this.h / 2, this.w, this.h);
+    assets.draw(ctx, this.asset, -this.w / 2, -this.h / 2, this.w, this.h);
     if (graveyardMode) {
       ctx.globalCompositeOperation = "source-atop";
       ctx.fillStyle = "rgba(126, 211, 83, 0.46)";
@@ -731,13 +742,10 @@ class Boss {
       ctx.ellipse(this.x + this.w / 2, this.y + this.h / 2, this.w * 0.68, this.h * 0.58, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      const station = assets.get("exxonGasStation");
-      if (station?.complete && station.naturalWidth > 0) {
-        ctx.drawImage(station, this.x + this.w - 28, GROUND_Y - 92, 86, 92);
-      }
+      assets.draw(ctx, "exxonGasStation", this.x + this.w - 28, GROUND_Y - 92, 86, 92);
     }
     if (this.hitFlash > 0) ctx.filter = "brightness(2.1)";
-    ctx.drawImage(assets.get(this.asset), this.x, this.y, this.w, this.h);
+    assets.draw(ctx, this.asset, this.x, this.y, this.w, this.h);
     ctx.restore();
     if (DEBUG) drawRect(ctx, this.hitbox(), "#f00");
   }
@@ -834,7 +842,7 @@ class PowerUp {
     ctx.save();
     ctx.shadowColor = this.pickup.color;
     ctx.shadowBlur = 10;
-    ctx.drawImage(assets.get(this.pickup.asset), this.x - 2, this.y - 2, this.w + 4, this.h + 4);
+    assets.draw(ctx, this.pickup.asset, this.x - 2, this.y - 2, this.w + 4, this.h + 4);
     ctx.restore();
     if (DEBUG) drawRect(ctx, this.hitbox(), "#00ff00");
   }
@@ -1250,6 +1258,7 @@ class Game {
   }
 
   checkLevelProgress() {
+    if (this.state !== "playing") return;
     const nextLevel = this.playerLevel + 1;
     if (Math.floor(this.score) < scoreForLevel(nextLevel)) return;
     this.pendingLevel = nextLevel;
@@ -1344,9 +1353,13 @@ class Game {
   loop(timestamp) {
     const dt = Math.min(0.033, (timestamp - this.lastTime) / 1000 || 0);
     this.lastTime = timestamp;
-    if (this.state === "playing") this.update(dt);
-    if (this.state === "fakeout") this.updateFakeout(dt);
-    this.draw();
+    try {
+      if (this.state === "playing") this.update(dt);
+      if (this.state === "fakeout") this.updateFakeout(dt);
+      this.draw();
+    } catch (error) {
+      console.error("Bug Blaster frame failed", error);
+    }
     requestAnimationFrame((t) => this.loop(t));
   }
 
@@ -1369,7 +1382,7 @@ class Game {
     this.handleCollisions();
     this.cleanup();
     this.saveHighScore();
-    this.checkLevelProgress();
+    if (this.state === "playing") this.checkLevelProgress();
   }
 
   updateFakeout(dt) {
@@ -1989,7 +2002,7 @@ class Game {
     ctx.globalAlpha = 1 - fall * 0.72;
     ctx.translate(this.fakeoutPlayerX + this.player.w / 2, y + this.player.h / 2);
     ctx.rotate(fall * 0.45);
-    ctx.drawImage(this.assets.get("player"), -this.player.w / 2, -this.player.h / 2, this.player.w, this.player.h);
+    this.assets.draw(ctx, "player", -this.player.w / 2, -this.player.h / 2, this.player.w, this.player.h);
     ctx.restore();
   }
 
@@ -2204,7 +2217,7 @@ class Game {
     ctx.fillStyle = "rgba(255, 250, 240, 0.94)";
     roundRect(ctx, 222, 86, 516, 178, 8);
     ctx.fill();
-    ctx.drawImage(this.assets.get("badge"), 390, 102, 180, 64);
+    this.assets.draw(ctx, "badge", 390, 102, 180, 64);
     ctx.textAlign = "center";
     ctx.fillStyle = "#19323c";
     ctx.font = "900 44px Avenir, sans-serif";

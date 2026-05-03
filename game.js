@@ -34,6 +34,7 @@ const ASSET_PATHS = {
   zigzagBug: "assets/zigzag-bug.svg",
   miniSwarm: "assets/mini-swarm.svg",
   volkswagenBeetleBoss: "assets/volkswagen-beetle-boss.svg",
+  exxonGasStation: "assets/exxon-gas-station.svg",
   waspQueenBoss: "assets/wasp-queen-boss.svg",
   cloud: "assets/cloud.svg",
   tree: "assets/tree.svg",
@@ -135,6 +136,8 @@ const GASOLINE_IGNITE_DAMAGE_RATIO = 0.3;
 const GASOLINE_IGNITE_TICK = 2;
 const GASOLINE_POOL_LIFE = 12;
 const GASOLINE_IGNITED_LIFE = 8;
+const BEETLE_PHASE_HEALTH_MULTIPLIER = 0.5;
+const BEETLE_RECHARGE_DURATION = 2.6;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -623,8 +626,11 @@ class Boss {
     this.h = kind === "beetle" ? 104 : 108;
     this.baseY = kind === "beetle" ? GROUND_Y - this.h : SHOOT_LANE_Y - 62;
     this.y = this.baseY;
-    this.maxHealth = Math.max(1, Math.floor(((kind === "beetle" ? 34 : 28) + count * 13 + timeAlive * 0.14) * BOSS_HEALTH_MULTIPLIER));
+    const baseHealth = ((kind === "beetle" ? 34 : 28) + count * 13 + timeAlive * 0.14) * BOSS_HEALTH_MULTIPLIER;
+    this.maxHealth = Math.max(1, Math.floor(kind === "beetle" ? baseHealth * BEETLE_PHASE_HEALTH_MULTIPLIER : baseHealth));
     this.health = this.maxHealth;
+    this.phase = 1;
+    this.rechargeTimer = 0;
     this.time = 0;
     this.spawnTimer = 2.6;
     this.dead = false;
@@ -649,8 +655,19 @@ class Boss {
     }
     if (this.kind === "wasp") this.y = this.baseY + Math.sin(this.time * 1.9) * 12;
     else this.y = this.baseY + Math.sin(this.time * 1.35) * 8;
+    if (this.kind === "beetle" && this.phase === "recharge") {
+      this.rechargeTimer = Math.min(BEETLE_RECHARGE_DURATION, this.rechargeTimer + dt);
+      this.health = this.maxHealth * (this.rechargeTimer / BEETLE_RECHARGE_DURATION);
+      if (this.rechargeTimer >= BEETLE_RECHARGE_DURATION) {
+        this.phase = 2;
+        this.health = this.maxHealth;
+        this.nextHonkRatio = 1 - GASOLINE_HONK_STEP;
+        this.nextBleedRatio = 1 - GASOLINE_BLEED_STEP;
+        game.audio.beep("power");
+      }
+    }
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0) {
+    if (this.spawnTimer <= 0 && this.phase !== "recharge") {
       this.spawnTimer = this.kind === "wasp" ? rand(2.1, 3.0) : rand(2.8, 3.8);
       const type = this.kind === "wasp" ? (Math.random() < 0.55 ? "mini" : "flying") : (Math.random() < 0.7 ? "ground" : "fast");
       game.spawnEnemy(type, this.x - 10);
@@ -659,9 +676,19 @@ class Boss {
   }
 
   damage(amount) {
+    if (this.phase === "recharge") return;
     this.health -= amount;
     this.hitFlash = 0.1;
-    if (this.health <= 0) this.dead = true;
+    if (this.health <= 0) {
+      if (this.kind === "beetle" && this.phase === 1) {
+        this.phase = "recharge";
+        this.rechargeTimer = 0;
+        this.health = 0;
+        this.hitFlash = 0;
+      } else {
+        this.dead = true;
+      }
+    }
   }
 
   knockbackFrom(x, force) {
@@ -676,6 +703,18 @@ class Boss {
 
   draw(ctx, assets) {
     ctx.save();
+    if (this.kind === "beetle" && this.phase === "recharge") {
+      ctx.save();
+      ctx.globalAlpha = 0.5 + Math.sin(this.time * 16) * 0.12;
+      ctx.shadowColor = "#ffe866";
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = "rgba(255, 232, 102, 0.42)";
+      ctx.beginPath();
+      ctx.ellipse(this.x + this.w / 2, this.y + this.h / 2, this.w * 0.68, this.h * 0.58, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.drawImage(assets.get("exxonGasStation"), this.x + this.w - 28, GROUND_Y - 92, 86, 92);
+    }
     if (this.hitFlash > 0) ctx.filter = "brightness(2.1)";
     ctx.drawImage(assets.get(this.asset), this.x, this.y, this.w, this.h);
     ctx.restore();
@@ -2055,10 +2094,13 @@ class Game {
     ctx.fillStyle = "#ffffff";
     ctx.textBaseline = "middle";
     ctx.font = "900 13px ui-rounded, system-ui";
-    ctx.fillText(this.boss.kind === "beetle" ? "VW Beetle Boss" : "Wasp Queen Boss", x + 12, y + h / 2);
+    const label = this.boss.kind === "beetle"
+      ? this.boss.phase === "recharge" ? "VW Beetle Boss: Exxon Recharge" : `VW Beetle Boss Bar ${this.boss.phase}`
+      : "Wasp Queen Boss";
+    ctx.fillText(label, x + 12, y + h / 2);
     ctx.fillStyle = "rgba(8,14,28,0.6)";
     ctx.fillRect(x + labelW, y + 9, w - labelW - 14, 16);
-    ctx.fillStyle = "#ff5f57";
+    ctx.fillStyle = this.boss.kind === "beetle" && this.boss.phase === "recharge" ? "#ffe866" : "#ff5f57";
     ctx.fillRect(x + labelW + 2, y + 11, (w - labelW - 18) * (this.boss.health / this.boss.maxHealth), 12);
     ctx.strokeStyle = "rgba(255,255,255,0.7)";
     ctx.strokeRect(x + labelW, y + 9, w - labelW - 14, 16);

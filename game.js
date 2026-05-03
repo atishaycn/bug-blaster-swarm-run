@@ -121,6 +121,7 @@ const ROCKET = {
   bossSplashDamage: 3,
   knockback: 132
 };
+const BOSS_HEALTH_MULTIPLIER = 0.75;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -563,7 +564,7 @@ class Boss {
     this.h = kind === "beetle" ? 104 : 108;
     this.baseY = kind === "beetle" ? GROUND_Y - this.h : SHOOT_LANE_Y - 62;
     this.y = this.baseY;
-    this.maxHealth = Math.floor((kind === "beetle" ? 34 : 28) + count * 13 + timeAlive * 0.14);
+    this.maxHealth = Math.max(1, Math.floor(((kind === "beetle" ? 34 : 28) + count * 13 + timeAlive * 0.14) * BOSS_HEALTH_MULTIPLIER));
     this.health = this.maxHealth;
     this.time = 0;
     this.spawnTimer = 2.6;

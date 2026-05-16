@@ -10,6 +10,7 @@
 - `styles.css`: responsive page, frame, and overlay styling. Desktop keeps the centered card layout; phone widths (`max-width: 680px`) switch to a viewport-filling app shell.
 - `game.js`: all gameplay, rendering, input, audio, scoring, and state management.
 - `assets/`: lightweight SVG assets for player, bugs, bosses, scenery, and UI accents.
+- `chrome-dark-mode-extension/`: standalone unpacked Chrome extension for forcing readable dark mode on arbitrary pages. It is not part of the game runtime or Vercel deployment.
 - `README.md`: player-facing run instructions and gameplay notes.
 
 ## Run And Verify
@@ -19,6 +20,8 @@ Open `index.html` directly in Chrome for pure local play. Run the syntax and roc
 ```sh
 npm run check
 ```
+
+For the Chrome dark-mode extension, validate changed JavaScript with `node --check chrome-dark-mode-extension/content.js` and `node --check chrome-dark-mode-extension/popup.js`, then load the folder from `chrome://extensions` in Developer mode.
 
 For local static verification, run:
 

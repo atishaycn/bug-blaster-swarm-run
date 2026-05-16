@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Proper Dark Mode</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="panel">
+      <header>
+        <p class="eyebrow">Proper Dark Mode</p>
+        <h1>Page lighting</h1>
+      </header>
+
+      <label class="row">
+        <span>
+          <strong>All pages</strong>
+          <small>On by default for every site</small>
+        </span>
+        <input id="global-toggle" type="checkbox" role="switch">
+      </label>
+
+      <label class="row">
+        <span>
+          <strong>This site</strong>
+          <small id="site-label">Current tab</small>
+        </span>
+        <input id="site-toggle" type="checkbox" role="switch">
+      </label>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

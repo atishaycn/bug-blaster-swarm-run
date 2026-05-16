@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Proper Dark Mode",
+  "description": "Turns pages into a readable dark mode by default, with global and per-site toggles.",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "Proper Dark Mode",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

@@ -10,6 +10,7 @@
 - `styles.css`: responsive page, frame, and overlay styling. Desktop keeps the centered card layout; phone widths (`max-width: 680px`) switch to a viewport-filling app shell.
 - `game.js`: all gameplay, rendering, input, audio, scoring, and state management.
 - `assets/`: lightweight SVG assets for player, bugs, bosses, scenery, and UI accents.
+- `IOS_PORT_CODEX.md`: detailed instruction brief for porting the entire game into a native full-screen iOS app from an empty workspace, including ImageGen-based HD asset generation requirements.
 - `README.md`: player-facing run instructions and gameplay notes.
 
 ## Run And Verify
